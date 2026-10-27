@@ -3,6 +3,7 @@ import { createContext, useContext } from 'react'
 import en from './en.json'
 import zhCN from './zh_CN.json'
 import { deepMerge } from '../lib/format'
+import type { TimeUnits } from '../lib/format'
 
 export const LANGUAGES: Record<string, string> = {
   'zh-CN': '简体中文',
@@ -30,6 +31,11 @@ export function getLangPack(lang: string): Lang {
   const base = en as Lang
   if (lang === 'en' || !packs[lang]) return base
   return deepMerge(base, packs[lang])
+}
+
+/** 时长单位随界面语言变化：中文用 天/小时/分/秒，其余用原版 d/h/m/s */
+export function getTimeUnits(name: string): TimeUnits {
+  return name === 'zh-CN' ? { d: '天', h: '小时', m: '分', s: '秒' } : { d: 'd', h: 'h', m: 'm', s: 's' }
 }
 
 export const LangContext = createContext<{ lang: Lang; name: string }>({

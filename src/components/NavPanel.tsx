@@ -7,6 +7,7 @@ import { useStats, useTorrents } from '../api/queries'
 import { getSnapshot } from '../lib/torrents'
 import { STATUS } from '../lib/types'
 import { formatSize, getTotalTime } from '../lib/format'
+import { getTimeUnits } from '../i18n'
 import { uiStore, useUi } from '../lib/ui'
 
 function btoaSafe(s: string): string {
@@ -123,22 +124,23 @@ export function NavPanel() {
     }
 
     if (config.nav.statistics && stats.data) {
+      const units = getTimeUnits(lang.name ?? 'en')
       const cs = stats.data['cumulative-stats']
       const ks = stats.data['current-stats']
-      const statItems = (s: typeof cs) => [
+      const statItems = (s: typeof cs, units: ReturnType<typeof getTimeUnits>) => [
         { id: 'uploadedBytes', text: `${t.statistics.uploadedBytes} ${formatSize(s.uploadedBytes)}`, iconCls: 'tr-icon-empty' },
         { id: 'downloadedBytes', text: `${t.statistics.downloadedBytes} ${formatSize(s.downloadedBytes)}`, iconCls: 'tr-icon-empty' },
         { id: 'filesAdded', text: `${t.statistics.filesAdded} ${s.filesAdded}`, iconCls: 'tr-icon-empty' },
         { id: 'sessionCount', text: `${t.statistics.sessionCount} ${s.sessionCount}`, iconCls: 'tr-icon-empty' },
-        { id: 'secondsActive', text: `${t.statistics.secondsActive} ${getTotalTime(s.secondsActive * 1000)}`, iconCls: 'tr-icon-empty' },
+        { id: 'secondsActive', text: `${t.statistics.secondsActive} ${getTotalTime(s.secondsActive * 1000, units)}`, iconCls: 'tr-icon-empty' },
       ]
       result.push({
         id: 'statistics',
         text: t.statistics.title,
         iconCls: 'tr-icon-shuju',
         children: [
-          { id: 'cumulative-stats', text: t.statistics.cumulative, iconCls: 'tr-icon-folder', children: statItems(cs).map((x) => ({ ...x, id: x.id })) },
-          { id: 'current-stats', text: t.statistics.current, iconCls: 'tr-icon-folder', children: statItems(ks).map((x) => ({ ...x, id: 'current-' + x.id })) },
+          { id: 'cumulative-stats', text: t.statistics.cumulative, iconCls: 'tr-icon-folder', children: statItems(cs, units).map((x) => ({ ...x, id: x.id })) },
+          { id: 'current-stats', text: t.statistics.current, iconCls: 'tr-icon-folder', children: statItems(ks, units).map((x) => ({ ...x, id: 'current-' + x.id })) },
         ],
       })
     }

@@ -4,6 +4,7 @@ import type { GridColumn } from '../components/DataGrid'
 import type { Lang } from '../i18n'
 import type { Torrent } from './types'
 import { formatLongTime, formatSize, getTotalTime, getGrayLevel } from './format'
+import { getTimeUnits } from '../i18n'
 import { STATUS } from './types'
 import { configStore } from './config'
 
@@ -106,12 +107,13 @@ export function LabelsCell({ torrent }: { torrent: Torrent }) {
 
 export function makeColumns(lang: Lang): GridColumn<Row>[] {
   const f = lang.torrent.fields as Record<string, string>
+  const units = getTimeUnits(lang.name ?? 'en')
   const ratio = (value: number): ReactNode => (
     <span className={parseFloat(String(value)) < 1 && value !== -1 ? 'text-status-warning' : ''}>
       {value === -1 ? '∞' : value}
     </span>
   )
-  const remainingTime = (value: number): ReactNode => (value >= 3153600000000 ? '∞' : getTotalTime(value))
+  const remainingTime = (value: number): ReactNode => (value >= 3153600000000 ? '∞' : getTotalTime(value, units))
 
   const cols: GridColumn<Row>[] = [
     { field: 'ck', title: '', checkbox: true, allowCustom: false, width: 28 },

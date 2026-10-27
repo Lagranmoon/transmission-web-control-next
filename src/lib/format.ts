@@ -46,8 +46,19 @@ export function formatLongTime(time: number | undefined): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
 }
 
-/** 毫秒时长 → "x天 x小时 x分 x秒"（原 getTotalTime，%dd %hh %mm %ss） */
-export function getTotalTime(timeMs: number): string {
+/** 时长单位（随界面语言变化） */
+export interface TimeUnits {
+  d: string
+  h: string
+  m: string
+  s: string
+}
+
+/** 英文时长单位，同原版 "%dd %hh %mm %ss" 格式 */
+export const EN_TIME_UNITS: TimeUnits = { d: 'd', h: 'h', m: 'm', s: 's' }
+
+/** 毫秒时长 → 本地化时长文本（原 getTotalTime） */
+export function getTotalTime(timeMs: number, units: TimeUnits = EN_TIME_UNITS): string {
   const days = Math.floor(timeMs / (24 * 3600 * 1000))
   const leave1 = timeMs % (24 * 3600 * 1000)
   const hours = Math.floor(leave1 / (3600 * 1000))
@@ -55,10 +66,10 @@ export function getTotalTime(timeMs: number): string {
   const minutes = Math.floor(leave2 / (60 * 1000))
   const seconds = Math.round((leave2 % (60 * 1000)) / 1000)
   let result = ''
-  if (days > 0) result += `${days}天 `
-  if (hours > 0) result += `${hours}小时 `
-  if (minutes > 0) result += `${minutes}分 `
-  if (seconds > 0) result += `${seconds}秒`
+  if (days > 0) result += `${days}${units.d} `
+  if (hours > 0) result += `${hours}${units.h} `
+  if (minutes > 0) result += `${minutes}${units.m} `
+  if (seconds > 0) result += `${seconds}${units.s}`
   return result.trim()
 }
 

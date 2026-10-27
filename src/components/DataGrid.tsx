@@ -1,5 +1,6 @@
 // 通用数据表格 — 复刻 EasyUI datagrid 的核心交互：
 // 复选列 / 行号 / 排序 / 列宽拖动 / 表头右键显示隐藏列 / 斑马纹 / 分页 / shift 连选
+// 结构：单表格 + 粘性表头（thead sticky），表头与表体列宽天然对齐
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { Pagination } from './ui'
 
@@ -73,9 +74,8 @@ export function DataGrid<T extends Record<string, unknown>>({
 }) {
   const visibleCols = columns.filter((c) => !c.hidden)
   const [headerMenu, setHeaderMenu] = useState<{ x: number; y: number } | null>(null)
-  const [resizing, setResizing] = useState<{ field: string; startX: number; startW: number } | null>(null)
+  const [resizeW, setResizeW] = useState<{ field: string; w: number } | null>(null)
   const lastCheckedRef = useRef<number>(-1)
-  const bodyRef = useRef<HTMLDivElement>(null)
 
   const keyOf = (row: T) => row[keyField] as string | number
   const checked = checkedKeys ?? new Set<string | number>()
@@ -126,35 +126,45 @@ export function DataGrid<T extends Record<string, unknown>>({
     let finalW = startW
     const moveHandler = (ev: MouseEvent) => {
       finalW = Math.max(24, startW + ev.clientX - startX)
-      setResizing({ field, startX: ev.clientX, startW: finalW })
+      setResizeW({ field, w: finalW })
     }
     const up = () => {
       window.removeEventListener('mousemove', moveHandler)
       window.removeEventListener('mouseup', up)
-      setResizing(null)
+      setResizeW(null)
       onColumnsChange?.(columns.map((c) => (c.field === field ? { ...c, width: finalW } : c)))
     }
     window.addEventListener('mousemove', moveHandler)
     window.addEventListener('mouseup', up)
   }
 
-  const totalWidth = visibleCols.reduce((s, c) => s + (c.width ?? 80), 0) + (rownumbers ? 28 : 0)
+  const colWidth = (field: string, fallback: number) =>
+    resizeW?.field === field ? resizeW.w : fallback
+
+  const totalWidth =
+    visibleCols.reduce((s, c) => s + colWidth(c.field, c.width ?? 80), 0) + (rownumbers ? 32 : 0)
 
   return (
     <div className="eu-datagrid" style={maxHeight ? { maxHeight } : undefined}>
-      <div className="eu-datagrid-header">
+      <div className="eu-datagrid-scroll">
         <table style={{ width: totalWidth }}>
+          <colgroup>
+            {rownumbers && <col style={{ width: 32 }} />}
+            {visibleCols.map((col) => (
+              <col key={col.field} style={{ width: colWidth(col.field, col.width ?? 80) }} />
+            ))}
+          </colgroup>
           <thead>
             <tr>
               {rownumbers && (
-                <td style={{ width: 28 }}>
+                <th className="datagrid-head-cell">
                   <div className="datagrid-cell" style={{ textAlign: 'center' }}>#</div>
-                </td>
+                </th>
               )}
               {visibleCols.map((col) => {
-                const w = resizing?.field === col.field ? resizing.startW : col.width ?? 80
+                const w = colWidth(col.field, col.width ?? 80)
                 return (
-                  <td key={col.field} style={{ width: w }}>
+                  <th key={col.field} className="datagrid-head-cell" style={{ width: w }}>
                     <div
                       className={`datagrid-cell ${col.sortable ? 'sortable' : ''}`}
                       style={{ textAlign: col.align }}
@@ -174,7 +184,7 @@ export function DataGrid<T extends Record<string, unknown>>({
                         />
                       ) : (
                         <>
-                          <span className="block truncate">{col.title}</span>
+                          <span className="datagrid-cell-text">{col.title}</span>
                           {sortName === col.field && (
                             <span className="sort-icon">{sortOrder === 'asc' ? '▲' : '▼'}</span>
                           )}
@@ -182,20 +192,16 @@ export function DataGrid<T extends Record<string, unknown>>({
                       )}
                       <span className="col-resizer" onMouseDown={(e) => startResize(col.field, e)} />
                     </div>
-                  </td>
+                  </th>
                 )
               })}
             </tr>
           </thead>
-        </table>
-      </div>
-      <div className="eu-datagrid-body" ref={bodyRef}>
-        <table style={{ width: totalWidth }}>
           <tbody>
             {pageRows.length === 0 && (
               <tr>
                 <td colSpan={visibleCols.length + (rownumbers ? 1 : 0)}>
-                  <div className="datagrid-cell" style={{ textAlign: 'center', color: '#999', padding: 12 }}>
+                  <div className="datagrid-cell" style={{ textAlign: 'center', color: '#999', padding: 14 }}>
                     {emptyText}
                   </div>
                 </td>
@@ -218,32 +224,29 @@ export function DataGrid<T extends Record<string, unknown>>({
                       </div>
                     </td>
                   )}
-                  {visibleCols.map((col) => {
-                    const w = resizing?.field === col.field ? resizing.startW : col.width ?? 80
-                    return (
-                      <td key={col.field} style={{ width: w }}>
-                        <div className="datagrid-cell" style={{ textAlign: col.align }}>
-                          {col.checkbox ? (
-                            <input
-                              type="checkbox"
-                              checked={checked.has(key)}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                toggleRowCheck(i, row, e.nativeEvent as unknown as React.MouseEvent)
-                              }}
-                              onChange={() => {
-                                /* 状态由 click 处理 */
-                              }}
-                            />
-                          ) : col.formatter ? (
-                            col.formatter(row[col.field], row)
-                          ) : (
-                            String(row[col.field] ?? '')
-                          )}
-                        </div>
-                      </td>
-                    )
-                  })}
+                  {visibleCols.map((col) => (
+                    <td key={col.field}>
+                      <div className="datagrid-cell" style={{ textAlign: col.align }}>
+                        {col.checkbox ? (
+                          <input
+                            type="checkbox"
+                            checked={checked.has(key)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              toggleRowCheck(i, row, e)
+                            }}
+                            onChange={() => {
+                              /* 状态由 click 处理 */
+                            }}
+                          />
+                        ) : col.formatter ? (
+                          col.formatter(row[col.field], row)
+                        ) : (
+                          String(row[col.field] ?? '')
+                        )}
+                      </div>
+                    </td>
+                  ))}
                 </tr>
               )
             })}
@@ -263,7 +266,6 @@ export function DataGrid<T extends Record<string, unknown>>({
       )}
       {headerMenu &&
         (() => {
-          const close = () => setHeaderMenu(null)
           return (
             <div
               className="eu-menu"
@@ -280,7 +282,7 @@ export function DataGrid<T extends Record<string, unknown>>({
                       onColumnsChange?.(
                         columns.map((x) => (x.field === c.field ? { ...x, hidden: !x.hidden } : x)),
                       )
-                      close()
+                      setHeaderMenu(null)
                     }}
                   >
                     <input type="checkbox" readOnly checked={!c.hidden} />

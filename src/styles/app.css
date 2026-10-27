@@ -169,7 +169,7 @@ textarea.eu-textbox {
   padding: 4px;
 }
 
-/* ---------- 表格（datagrid） ---------- */
+/* ---------- 表格（datagrid）---------- */
 .eu-datagrid {
   display: flex;
   flex-direction: column;
@@ -177,77 +177,85 @@ textarea.eu-textbox {
   min-height: 0;
   background: #fff;
 }
-.eu-datagrid-header {
-  flex: none;
-  overflow: hidden;
-  background: linear-gradient(to bottom, #f9f9f9 0, #efefef 100%);
-  border-bottom: 1px solid #ddd;
-  color: #0e2d5f;
-}
-.eu-datagrid-header table,
-.eu-datagrid-body table {
-  border-collapse: collapse;
-  width: max-content;
-  min-width: 100%;
-  table-layout: fixed;
-}
-.eu-datagrid-header td {
-  border-right: 1px dotted #ccc;
-  padding: 0;
-  font-weight: normal;
-}
-.eu-datagrid-header .datagrid-cell {
-  padding: 4px 5px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  cursor: default;
-  user-select: none;
-  position: relative;
-}
-.eu-datagrid-header .datagrid-cell.sortable:hover {
-  background: #eaf2ff;
-}
-.eu-datagrid-header .datagrid-cell .sort-icon {
-  position: absolute;
-  right: 2px;
-  top: 3px;
-  font-size: 8px;
-  color: #a02020;
-}
-.eu-datagrid-header .col-resizer {
-  position: absolute;
-  right: 0;
-  top: 0;
-  width: 5px;
-  height: 100%;
-  cursor: col-resize;
-}
-.eu-datagrid-body {
+/* 单一滚动容器：表头随表体一起横向滚动，thead 粘性置顶 */
+.eu-datagrid-scroll {
   flex: 1;
   min-height: 0;
   overflow: auto;
 }
-.eu-datagrid-body td {
+.eu-datagrid-scroll table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: max-content;
+  min-width: 100%;
+  table-layout: fixed;
+}
+.eu-datagrid-scroll thead th.datagrid-head-cell {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: linear-gradient(to bottom, #f9f9f9 0, #efefef 100%);
+  border-right: 1px dotted #ccc;
+  border-bottom: 1px solid #ddd;
+  padding: 0;
+  color: #0e2d5f;
+  font-weight: normal;
+}
+.eu-datagrid-scroll tbody td {
   border-right: 1px dotted #ccc;
   border-bottom: 1px dotted #eee;
   padding: 0;
+  background: #fff;
 }
-.eu-datagrid-cell {
-  padding: 3px 5px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.eu-datagrid-row.alt {
+.eu-datagrid-row.alt > td {
   background: var(--eu-alt);
 }
 .eu-datagrid-row.selected > td {
-  background: var(--eu-selected);
+  background: var(--eu-selected) !important;
   color: #000;
 }
 .eu-datagrid-row:hover:not(.selected) > td {
   background: var(--eu-hover);
+}
+.eu-datagrid-cell {
+  padding: 5px 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+}
+.eu-datagrid-cell.sortable {
+  cursor: pointer;
+  user-select: none;
+  /* 给排序箭头预留空间，避免与文字挤压 */
+  padding-right: 20px;
+}
+.eu-datagrid-cell.sortable:hover {
+  background: #eaf2ff;
+}
+.eu-datagrid-cell .datagrid-cell-text {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+.eu-datagrid-cell .sort-icon {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 9px;
+  color: #a02020;
+  line-height: 1;
+}
+.eu-datagrid-cell .col-resizer {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
 }
 
 /* 分页栏 */
@@ -715,14 +723,14 @@ i.icon-flag-edit {
 }
 
 /* 滚动条（EasyUI 风格） */
-.eu-datagrid-body::-webkit-scrollbar,
+.eu-datagrid-scroll::-webkit-scrollbar,
 .eu-tree::-webkit-scrollbar,
 .eu-dialog-body::-webkit-scrollbar,
 .eu-tabs-body::-webkit-scrollbar {
   width: 12px;
   height: 12px;
 }
-.eu-datagrid-body::-webkit-scrollbar-thumb,
+.eu-datagrid-scroll::-webkit-scrollbar-thumb,
 .eu-tree::-webkit-scrollbar-thumb,
 .eu-dialog-body::-webkit-scrollbar-thumb,
 .eu-tabs-body::-webkit-scrollbar-thumb {

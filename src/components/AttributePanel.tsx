@@ -8,6 +8,7 @@ import { useTorrentDetails, useRpcMutation, useTorrents } from '../api/queries'
 import { getSnapshot } from '../lib/torrents'
 import { uiStore, useUi, showToast, openDialog } from '../lib/ui'
 import { formatLongTime, formatSize, getTotalTime } from '../lib/format'
+import { getTimeUnits } from '../i18n'
 import { STATUS, type FileStat, type Peer, type Torrent, type TorrentFile, type TrackerStat } from '../lib/types'
 import { ProgressBar } from '../lib/columns'
 import { rpc } from '../lib/rpc'
@@ -68,7 +69,8 @@ export function AttributePanel() {
 
 /* ---------------- 常规 ---------------- */
 function BaseTab({ torrent }: { torrent: Torrent }) {
-  const { lang } = useLang()
+  const { lang, name: langName } = useLang()
+  const timeUnits = getTimeUnits(langName)
   const L = lang.torrent.attribute.label as Record<string, string>
   const st = lang.torrent['status-text'] as Record<string, string>
 
@@ -161,7 +163,7 @@ function BaseTab({ torrent }: { torrent: Torrent }) {
           <tr>
             <td className="title">{L.leftUntilDone}</td>
             <td>
-              {formatSize(torrent.leftUntilDone)} ({remaining >= 3153600000000 ? '∞' : getTotalTime(remaining)})
+              {formatSize(torrent.leftUntilDone)} ({remaining >= 3153600000000 ? '∞' : getTotalTime(remaining, timeUnits)})
             </td>
             <td className="title">{L.completeSize}</td>
             <td>{formatSize(completeSize)}</td>
