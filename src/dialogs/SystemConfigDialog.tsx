@@ -330,7 +330,21 @@ export function SystemConfigDialog({ dialogId }: { dialogId: string }) {
               <tr>
                 <td className="title">{L['alt-speed-time']}</td>
                 <td colSpan={3}>
-                  {timeStr(form['alt-speed-time-begin'])} ~ {timeStr(form['alt-speed-time-end'])}{' '}
+                  <input
+                    type="time"
+                    className="eu-textbox"
+                    value={timeStr(form['alt-speed-time-begin'])}
+                    onChange={(e) => set({ 'alt-speed-time-begin': minutesOf(e.target.value) })}
+                    disabled={!form['alt-speed-time-enabled']}
+                  />
+                  {' '}~{' '}
+                  <input
+                    type="time"
+                    className="eu-textbox"
+                    value={timeStr(form['alt-speed-time-end'])}
+                    onChange={(e) => set({ 'alt-speed-time-end': minutesOf(e.target.value) })}
+                    disabled={!form['alt-speed-time-enabled']}
+                  />{' '}
                   {[1, 2, 3, 4, 5, 6, 0].map((d) => (
                     <label key={d} className="ml-2">
                       <input
@@ -504,6 +518,12 @@ function timeStr(minutes: number): string {
   const h = Math.floor((minutes ?? 0) / 60)
   const m = (minutes ?? 0) % 60
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+/** hh:mm → 当日分钟数 */
+function minutesOf(hhmm: string): number {
+  const [h, m] = (hhmm || '0:0').split(':').map(Number)
+  return (h || 0) * 60 + (m || 0)
 }
 
 /* 用户标签管理（更多设置-用户标签） */

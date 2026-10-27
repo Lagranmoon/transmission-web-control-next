@@ -229,7 +229,7 @@ export function NavPanel() {
       {ui.checkedIds.length > 0 && (
         <div className="eu-panel !border-0 !border-t border-[var(--eu-border)]" style={{ height: 180 }}>
           <div className="eu-panel-header">{lang.title.status}</div>
-          <div className="eu-panel-body overflow-auto text-[12px]">
+          <div className="eu-panel-body overflow-auto text-[12px] relative">
             <div className="p-1">
               {lang.system.status.checked.replace('%n', String(ui.checkedIds.length))}
             </div>
@@ -240,6 +240,14 @@ export function NavPanel() {
                 </li>
               ))}
             </ol>
+            <button
+              className="user-label-set-btn absolute"
+              style={{ right: 8, bottom: 6 }}
+              title={lang.dialog.public['button-cancel']}
+              onClick={() => uiStore.set({ checkedIds: [] })}
+            >
+              <i className="iconfont tr-icon-cancel-checked" />
+            </button>
           </div>
         </div>
       )}

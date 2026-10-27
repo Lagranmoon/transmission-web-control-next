@@ -79,12 +79,21 @@ export function AddTorrentDialog({ dialogId, files }: { dialogId: string; files?
   const [fileList, setFileList] = useState<File[]>(files || [])
   const [status, setStatus] = useState('')
   const [busy, setBusy] = useState(false)
+  // 添加时同步打标签（原 label_page）
+  const [selectedLabels, setSelectedLabels] = useState<Set<number>>(new Set())
 
   const dirOptions = useMemo(() => {
     const list = uniq([...(defaultDir ? [defaultDir] : []), ...snap.downloadDirs, ...getFolderDictionary()])
       .map((d) => (d.endsWith('/') ? d.slice(0, -1) : d))
     return list.map((d) => ({ value: d, text: d }))
   }, [snap.downloadDirs, defaultDir])
+
+  /** 添加成功后为种子保存所选标签 */
+  const saveLabelsFor = (hash: string) => {
+    if (!config.nav.labels || !selectedLabels.size) return
+    const maps = { ...config.labelMaps, [hash]: Array.from(selectedLabels) }
+    saveConfig({ labelMaps: maps })
+  }
 
   const ok = async () => {
     const isUpload = fileList.length > 0
@@ -106,7 +115,8 @@ export function AddTorrentDialog({ dialogId, files }: { dialogId: string; files?
         let done = 0
         for (const f of fileList) {
           try {
-            await addTorrentFile(f, dir, !autostart)
+            const added = await addTorrentFile(f, dir, !autostart)
+            if (added['torrent-added']?.hashString) saveLabelsFor(added['torrent-added'].hashString)
           } finally {
             done++
             setStatus(`${done}/${fileList.length}`)
@@ -121,7 +131,12 @@ export function AddTorrentDialog({ dialogId, files }: { dialogId: string; files?
           i++
           setStatus(`${lang.system.status.queue}${i}/${list.length} ${url}`)
           const u = /^[0-9a-f]{40}$/i.test(url) ? 'magnet:?xt=urn:btih:' + url : url
-          await rpc('torrent-add', { filename: u, paused: !autostart, 'download-dir': dir })
+          const added = await rpc<{ 'torrent-added'?: { hashString: string } }>('torrent-add', {
+            filename: u,
+            paused: !autostart,
+            'download-dir': dir,
+          })
+          if (added['torrent-added']?.hashString) saveLabelsFor(added['torrent-added'].hashString)
         }
         setStatus(lang.system.status.queuefinish)
       }
@@ -202,6 +217,52 @@ export function AddTorrentDialog({ dialogId, files }: { dialogId: string; files?
             </tr>
           </tbody>
         </table>
+        {config.nav.labels && (
+          <div style={{ borderTop: '1px dotted #ccc', marginTop: 4, paddingTop: 4 }}>
+            <div className="flex" style={{ height: 110 }}>
+              <div style={{ width: '50%' }}>
+                <div>{lang.dialog['torrent-setLabels'].available}</div>
+                <div className="pt-1">
+                  {config.labels.map((lb, i) =>
+                    selectedLabels.has(i) ? null : (
+                      <a
+                        key={i}
+                        className="user-label-big"
+                        style={{ backgroundColor: lb.color, color: getGrayLevel(lb.color) > 0.5 ? '#000' : '#fff' }}
+                        onClick={() => setSelectedLabels(new Set([...selectedLabels, i]))}
+                      >
+                        {lb.name}
+                      </a>
+                    ),
+                  )}
+                </div>
+              </div>
+              <div style={{ width: '50%', borderLeft: '1px dotted #ccc', paddingLeft: 5 }}>
+                <div>{lang.dialog['torrent-setLabels'].selected}</div>
+                <div className="pt-1">
+                  {[...selectedLabels].map((i) => {
+                    const lb = config.labels[i]
+                    if (!lb) return null
+                    return (
+                      <a
+                        key={i}
+                        className="user-label-big"
+                        style={{ backgroundColor: lb.color, color: getGrayLevel(lb.color) > 0.5 ? '#000' : '#fff' }}
+                        onClick={() => {
+                          const next = new Set(selectedLabels)
+                          next.delete(i)
+                          setSelectedLabels(next)
+                        }}
+                      >
+                        {lb.name}
+                      </a>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </Dialog>
   )

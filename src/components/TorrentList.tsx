@@ -129,8 +129,12 @@ export function TorrentList() {
 
   const onRowContextMenu = (e: React.MouseEvent, row: Row) => {
     e.preventDefault()
-    const ids = ui.checkedIds.includes(row.id) ? ui.checkedIds : [row.id]
-    if (!ui.checkedIds.includes(row.id)) {
+    // 简单检查模式：右键时仅选中当前行（原 onRowContextMenu 行为）
+    if (config.simpleCheckMode) {
+      uiStore.set({ checkedIds: [row.id] })
+    }
+    const ids = ui.checkedIds.includes(row.id) && !config.simpleCheckMode ? ui.checkedIds : [row.id]
+    if (!ui.checkedIds.includes(row.id) || config.simpleCheckMode) {
       uiStore.set({ checkedIds: ids })
     }
     const t = lang.toolbar
