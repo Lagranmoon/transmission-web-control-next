@@ -1,0 +1,15 @@
+# 参考代码（克隆的第三方仓库，不纳入版本管理）
+repos/
+
+# 依赖与构建产物
+node_modules/
+dist/
+*.tsbuildinfo
+
+# 环境与编辑器
+.env
+.env.*
+.DS_Store
+.idea/
+.vscode/
+*.swp

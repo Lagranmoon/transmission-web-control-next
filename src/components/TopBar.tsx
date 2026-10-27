@@ -1,0 +1,320 @@
+// 顶部标题栏 + 工具栏 — 复刻 index.html #m_top 区域
+import { useQueryClient } from '@tanstack/react-query'
+import { LinkButton, ComboBox, NumberSpinner, SearchBox, useMenu } from './ui'
+import { useLang } from '../i18n'
+import { saveConfig, useConfig } from '../lib/config'
+import { openDialog, showToast, uiStore, useUi } from '../lib/ui'
+import { useSession, useStats, useTorrents, useRpcMutation, queryKeys } from '../api/queries'
+import { getSnapshot, setSearchResult } from '../lib/torrents'
+import { formatSize } from '../lib/format'
+import type { Torrent } from '../lib/types'
+
+const THEMES = [
+  { value: 'default', text: 'Default', group: 'Base' },
+  { value: 'gray', text: 'Gray', group: 'Base' },
+  { value: 'metro', text: 'Metro', group: 'Base' },
+  { value: 'material', text: 'Material', group: 'Base' },
+  { value: 'bootstrap', text: 'Bootstrap', group: 'Base' },
+  { value: 'black', text: 'Black', group: 'Base' },
+]
+
+export function TopBar() {
+  const { lang } = useLang()
+  const config = useConfig()
+  const session = useSession()
+  const stats = useStats()
+  const ui = useUi()
+  const version = session.data?.version
+
+  return (
+    <div className="eu-panel" style={{ borderTop: 0, borderLeft: 0, borderRight: 0 }}>
+      {/* 标题行 */}
+      <div className="eu-panel-header" style={{ height: 47, display: 'flex', alignItems: 'center' }}>
+        <img src="/assets/logo.png" width={180} height={50} style={{ objectFit: 'contain' }} alt="logo" />
+        <div className="ml-auto flex items-center gap-2 pr-2">
+          <span>Theme: </span>
+          <ComboBox
+            width={120}
+            value={config.theme}
+            options={THEMES}
+            onChange={(v) => {
+              saveConfig({ theme: v })
+              showToast('主题已切换（新主题配色逐步适配中）')
+            }}
+          />
+          <span className="button-split">|</span>
+          <LinkButton
+            icon="tr-icon-server"
+            title={lang.toolbar.tip['ui-mobile']}
+            onClick={() => showToast('移动版界面尚未实现')}
+          />
+          <span className="button-split">|</span>
+          <LinkButton
+            icon="icon-transmission"
+            title={lang.toolbar.tip['ui-original']}
+            onClick={() => showToast('原版界面切换在独立部署时可用')}
+          />
+          <span className="button-split">|</span>
+          <LinkButton
+            icon="tr-icon-help"
+            title={lang.toolbar.about}
+            onClick={() => openDialog('about')}
+          >
+            {lang.toolbar.about}
+          </LinkButton>
+        </div>
+      </div>
+      <Toolbar />
+      {/* 底部状态栏 */}
+      <div
+        className="flex items-center px-2 gap-2 bg-[#f0f0f0] border-t border-[#95b8e7]"
+        style={{ height: 22 }}
+      >
+        <span
+          style={{
+            display: session.data?.['alt-speed-enabled'] ? 'inline-block' : 'none',
+            background: 'url(/assets/images/alt-speed.ico) no-repeat',
+            width: 16,
+            height: 16,
+          }}
+        />
+        <span className="iconlabel icon-down" style={{ paddingLeft: 19 }}>
+          {lang.statusbar.downloadspeed}
+        </span>
+        <span>{formatSize(stats.data?.downloadSpeed ?? 0, false, 'speed')}</span>
+        <span className="button-split">|</span>
+        <span className="iconlabel icon-up" style={{ paddingLeft: 19 }}>
+          {lang.statusbar.uploadspeed}
+        </span>
+        <span>{formatSize(stats.data?.uploadSpeed ?? 0, false, 'speed')}</span>
+        <span className="button-split">|</span>
+        <span>
+          {lang.dialog['system-config']['download-dir-free-space']}{' '}
+          {session.data ? formatSize((session.data as Record<string, number>)['download-dir-free-space'] ?? 0) : '…'}
+        </span>
+        <span className="ml-auto text-gray-600">
+          {version ? `Transmission ${lang.statusbar.version}${version}, RPC: ${session.data?.['rpc-version']}, WEB Control: 1.6.1-next` : ''}
+        </span>
+        {ui.toast && <span className="eu-toast" style={{ position: 'static', transform: 'none' }}>{ui.toast}</span>}
+      </div>
+    </div>
+  )
+}
+
+function Toolbar() {
+  const { lang } = useLang()
+  const config = useConfig()
+  const ui = useUi()
+  const { show } = useMenu()
+  const mutation = useRpcMutation()
+  const qc = useQueryClient()
+  const session = useSession()
+  // 订阅种子数据版本，轮询更新后重新计算按钮状态
+  useTorrents()
+  const snapshot = getSnapshot()
+
+  const checked = ui.checkedIds.map((id) => snapshot.all[id]).filter(Boolean) as Torrent[]
+  const single = checked.length === 1 ? checked[0] : null
+
+  /** 与原 checkTorrentRow 相同的按钮可用性逻辑 */
+  const btnState = () => {
+    const st = {
+      start: false,
+      pause: false,
+      rename: false,
+      remove: false,
+      recheck: false,
+      morepeers: false,
+      changeDownloadDir: false,
+      changeSpeedLimit: false,
+      copyPath: false,
+      queue: false,
+    }
+    if (checked.length === 0) return st
+    st.remove = st.changeDownloadDir = st.changeSpeedLimit = st.copyPath = true
+    if (checked.length === 1) {
+      st.rename = true
+      st.queue = true
+      const t = single!
+      if (t.status === 0) {
+        st.start = st.recheck = true
+      } else if (t.status === 2 || t.status === 1) {
+        // 校验中：全部禁用
+      } else {
+        st.pause = st.morepeers = true
+      }
+    } else {
+      st.start = st.pause = st.recheck = true
+    }
+    return st
+  }
+  const st = btnState()
+
+  const withChecked = (fn: (ids: number[]) => void) => () => fn(ui.checkedIds.slice())
+
+  const changeStatus = (method: string) =>
+    withChecked((ids) => {
+      mutation.mutate({ method, args: { ids } }, { onSuccess: () => uiStore.set({ checkedIds: [] }) })
+    })
+
+  const split = <span className="button-split">|</span>
+
+  return (
+    <div
+      className="bg-[#f0f0f0] px-1 py-0.5 flex items-center flex-wrap gap-0.5 border-t border-[#d8d8d8]"
+      style={{ minHeight: 28 }}
+    >
+      <LinkButton
+        icon="tr-icon-plus"
+        text={lang.toolbar['add-torrent']}
+        title={lang.toolbar.tip['add-torrent']}
+        onClick={() => openDialog('torrent-add')}
+      />
+      {split}
+      <LinkButton
+        icon={session.data?.['alt-speed-enabled'] ? 'tr-icon-woniu' : 'tr-icon-rocket'}
+        title={lang.toolbar.tip['alt-speed']}
+        loading={mutation.isPending && mutation.variables?.method === 'session-set'}
+        onClick={() => {
+          const enabled = !session.data?.['alt-speed-enabled']
+          mutation.mutate({ method: 'session-set', args: { 'alt-speed-enabled': enabled } })
+        }}
+      />
+      {split}
+      <LinkButton icon="tr-icon-reload" title={lang.toolbar.tip['system-reload']} onClick={() => {
+        void qc.invalidateQueries({ queryKey: queryKeys.torrents })
+        void qc.invalidateQueries({ queryKey: queryKeys.stats })
+        void qc.invalidateQueries({ queryKey: queryKeys.session })
+      }} />
+      <LinkButton icon="tr-icon-system-config" title={lang.toolbar.tip['system-config']} onClick={() => openDialog('system-config')} />
+      {split}
+      <LinkButton
+        icon="tr-icon-plugin"
+        text={lang.toolbar.plugin}
+        title={lang.toolbar.plugin}
+        onClick={(e) => {
+          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+          show(
+            [
+              {
+                id: 'replace-tracker',
+                text: lang.toolbar['tracker-replace'],
+                icon: 'tr-icon-replace',
+                onClick: () => openDialog('system-replaceTracker'),
+              },
+              {
+                id: 'auto-match',
+                text: (lang.menus.plugin as Record<string, string>)['auto-match-data-folder'],
+                icon: 'tr-icon-auto-match',
+                disabled: true,
+                onClick: () => {},
+              },
+            ],
+            rect.left,
+            rect.bottom + 2,
+          )
+        }}
+      />
+      {split}
+      <LinkButton icon="tr-icon-start" title={lang.toolbar.tip.start} disabled={!st.start} onClick={changeStatus('torrent-start')} />
+      <LinkButton icon="tr-icon-pause" title={lang.toolbar.tip.pause} disabled={!st.pause} onClick={changeStatus('torrent-stop')} />
+      <LinkButton icon="tr-icon-rename" title={lang.toolbar.tip.rename} disabled={!st.rename} onClick={() => single && openDialog('torrent-rename', { id: single.id })} />
+      <LinkButton
+        icon="tr-icon-delete"
+        title={lang.toolbar.tip.remove}
+        disabled={!st.remove}
+        onClick={withChecked((ids) => openDialog('torrent-remove-confirm', { ids }))}
+      />
+      <LinkButton
+        icon="tr-icon-data-check"
+        title={lang.toolbar.tip.recheck}
+        disabled={!st.recheck}
+        onClick={() => {
+          const needConfirm = checked.some((t) => t.percentDone > 0)
+          if (!needConfirm || window.confirm(lang.toolbar.tip['recheck-confirm'])) {
+            changeStatus('torrent-verify')()
+          }
+        }}
+      />
+      <LinkButton icon="tr-icon-more-peers" title={lang.toolbar.tip['more-peers']} disabled={!st.morepeers} onClick={changeStatus('torrent-reannounce')} />
+      <LinkButton
+        icon="tr-icon-folder-change"
+        title={lang.toolbar.tip['change-download-dir']}
+        disabled={!st.changeDownloadDir}
+        onClick={withChecked((ids) => openDialog('torrent-changeDownloadDir', { ids }))}
+      />
+      <LinkButton
+        icon="tr-icon-speedlimit"
+        title={(lang.toolbar.tip as Record<string, string>)['change-speedlimit'] ?? lang.dialog['torrent-changeSpeedLimit'].title}
+        disabled={!st.changeSpeedLimit}
+        onClick={withChecked((ids) => openDialog('torrent-changeSpeedLimit', { ids }))}
+      />
+      <LinkButton
+        icon="tr-icon-clippy"
+        title={lang.toolbar.tip['copy-path-to-clipboard']}
+        disabled={!st.copyPath}
+        onClick={() => {
+          const paths = Array.from(new Set(checked.map((t) => t.downloadDir)))
+          navigator.clipboard?.writeText(paths.join('\n'))
+          showToast(lang.toolbar.tip['copy-path-to-clipboard'])
+        }}
+      />
+      {split}
+      <LinkButton
+        icon="tr-icon-queue-move"
+        text={lang.toolbar.queue}
+        title={lang.toolbar.queue}
+        disabled={!st.queue}
+        onClick={(e) => {
+          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+          show(
+            [
+              { id: 'queue-move-top', text: lang.menus.queue['move-top'], icon: 'tr-icon-top', disabled: !st.queue, onClick: changeStatus('queue-move-top') },
+              { id: 'queue-move-up', text: lang.menus.queue['move-up'], icon: 'tr-icon-up', disabled: !st.queue, onClick: changeStatus('queue-move-up') },
+              { id: 'queue-move-down', text: lang.menus.queue['move-down'], icon: 'tr-icon-down', disabled: !st.queue, onClick: changeStatus('queue-move-down') },
+              { id: 'queue-move-bottom', text: lang.menus.queue['move-bottom'], icon: 'tr-icon-bottom', disabled: !st.queue, onClick: changeStatus('queue-move-bottom') },
+            ],
+            rect.left,
+            rect.bottom + 2,
+          )
+        }}
+      />
+      {split}
+      <LinkButton icon="tr-icon-start-all" title={lang.toolbar.tip['start-all']} onClick={() => mutation.mutate({ method: 'torrent-start' })} />
+      <LinkButton icon="tr-icon-pause-all" title={lang.toolbar.tip['pause-all']} onClick={() => mutation.mutate({ method: 'torrent-stop' })} />
+      {split}
+      <label>{lang.toolbar['reload-time']}</label>
+      <NumberSpinner
+        value={config.reloadStep / 1000}
+        min={3}
+        width={50}
+        disabled={!config.autoReload}
+        onChange={(v) => {
+          if (Number.isFinite(v)) saveConfig({ reloadStep: v * 1000 })
+        }}
+      />
+      <label>{lang.toolbar['reload-time-unit']}</label>
+      <LinkButton
+        text={config.autoReload ? lang.toolbar['autoreload-enabled'] : lang.toolbar['autoreload-disabled']}
+        icon={config.autoReload ? 'icon-enabled' : 'icon-disabled'}
+        title={config.autoReload ? lang.toolbar.tip['autoreload-disabled'] : lang.toolbar.tip['autoreload-enabled']}
+        onClick={() => saveConfig({ autoReload: !config.autoReload })}
+      />
+      <span className="ml-auto flex items-center">
+        <SearchBox
+          width={200}
+          placeholder={lang.toolbar['search-prompt']}
+          onSearch={(v) => {
+            const result = setSearchResult(v)
+            if (!v) return
+            if (!result.length) {
+              showToast(lang.system.status.notfinal)
+              return
+            }
+            uiStore.set({ currentNodeId: 'search-result' })
+          }}
+        />
+      </span>
+    </div>
+  )
+}

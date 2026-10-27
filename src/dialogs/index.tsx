@@ -1,0 +1,749 @@
+// 对话框集合 — 复刻原项目 template/dialog-*.html
+import { useMemo, useState } from 'react'
+import { Dialog, LinkButton, ComboBox, NumberSpinner, SwitchButton } from '../components/ui'
+import { useLang } from '../i18n'
+import { closeDialog, useUi } from '../lib/ui'
+import { useSession, useRpcMutation, useTorrents } from '../api/queries'
+import { getSnapshot } from '../lib/torrents'
+import { getFolderDictionary, useConfig, saveConfig } from '../lib/config'
+import { rpc, addTorrentFile } from '../lib/rpc'
+import { getGrayLevel, uniq } from '../lib/format'
+import { SystemConfigDialog } from './SystemConfigDialog'
+
+/* 对话框宿主：根据 uiStore.dialogs 栈渲染对应组件 */
+export function DialogHost() {
+  const ui = useUi()
+  return (
+    <>
+      {ui.dialogs.map((d) => {
+        const p = (d.props || {}) as Record<string, never>
+        switch (d.id) {
+          case 'torrent-add':
+            return <AddTorrentDialog key={d.id} dialogId={d.id} />
+          case 'torrent-addfile':
+            return <AddTorrentDialog key={d.id} dialogId={d.id} files={p.files} />
+          case 'torrent-remove-confirm':
+            return <RemoveConfirmDialog key={d.id} dialogId={d.id} ids={p.ids} />
+          case 'torrent-rename':
+            return <RenameDialog key={d.id} dialogId={d.id} id={p.id} />
+          case 'torrent-changeDownloadDir':
+            return <ChangeDownloadDirDialog key={d.id} dialogId={d.id} ids={p.ids} />
+          case 'torrent-changeSpeedLimit':
+            return <ChangeSpeedLimitDialog key={d.id} dialogId={d.id} ids={p.ids} />
+          case 'torrent-attribute-add-tracker':
+            return <AddTrackerDialog key={d.id} dialogId={d.id} ids={p.ids} />
+          case 'system-replaceTracker':
+            return <ReplaceTrackerDialog key={d.id} dialogId={d.id} />
+          case 'system-config':
+            return <SystemConfigDialog key={d.id} dialogId={d.id} />
+          case 'about':
+            return <AboutDialog key={d.id} dialogId={d.id} />
+          case 'torrent-setLabels':
+            return <SetLabelsDialog key={d.id} dialogId={d.id} hashs={p.hashs} />
+          default:
+            return null
+        }
+      })}
+    </>
+  )
+}
+
+/* ---------------- 添加种子（URL / 文件） ---------------- */
+export function AddTorrentDialog({ dialogId, files }: { dialogId: string; files?: File[] }) {
+  const { lang } = useLang()
+  const config = useConfig()
+  const session = useSession()
+  useTorrents()
+  const snap = getSnapshot()
+  const mutation = useRpcMutation()
+  const L = lang.dialog['torrent-add']
+  const defaultDir = (session.data?.['download-dir'] as string) || ''
+  const [dir, setDir] = useState(defaultDir)
+  const [urls, setUrls] = useState('')
+  const [autostart, setAutostart] = useState(!!session.data?.['start-added-torrents'])
+  const [setDefault, setSetDefault] = useState(false)
+  const [fileList, setFileList] = useState<File[]>(files || [])
+  const [status, setStatus] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const dirOptions = useMemo(() => {
+    const list = uniq([...(defaultDir ? [defaultDir] : []), ...snap.downloadDirs, ...getFolderDictionary()])
+      .map((d) => (d.endsWith('/') ? d.slice(0, -1) : d))
+    return list.map((d) => ({ value: d, text: d }))
+  }, [snap.downloadDirs, defaultDir])
+
+  const ok = async () => {
+    const isUpload = fileList.length > 0
+    const urlText = urls.trim()
+    if (!isUpload && !urlText) {
+      setStatus(L.nosource)
+      setTimeout(() => setStatus(''), 2000)
+      return
+    }
+    setBusy(true)
+    try {
+      if (setDefault && dir && dir !== defaultDir) {
+        await rpc('session-set', { 'download-dir': dir })
+      }
+      if (autostart !== !!session.data?.['start-added-torrents']) {
+        await rpc('session-set', { 'start-added-torrents': autostart })
+      }
+      if (isUpload) {
+        let done = 0
+        for (const f of fileList) {
+          try {
+            await addTorrentFile(f, dir, !autostart)
+          } finally {
+            done++
+            setStatus(`${done}/${fileList.length}`)
+          }
+        }
+        mutation.reset()
+        void mutation.mutate({ method: 'session-stats' })
+      } else if (urlText) {
+        const list = urlText.split('\n').map((s) => s.trim()).filter(Boolean)
+        let i = 0
+        for (const url of list) {
+          i++
+          setStatus(`${lang.system.status.queue}${i}/${list.length} ${url}`)
+          const u = /^[0-9a-f]{40}$/i.test(url) ? 'magnet:?xt=urn:btih:' + url : url
+          await rpc('torrent-add', { filename: u, paused: !autostart, 'download-dir': dir })
+        }
+        setStatus(lang.system.status.queuefinish)
+      }
+      closeDialog(dialogId)
+    } catch (e) {
+      setStatus(String((e as Error).message || e))
+      setBusy(false)
+      return
+    }
+  }
+
+  return (
+    <Dialog
+      title={lang.toolbar['add-torrent']}
+      width={620}
+      height={config.nav.labels ? 560 : 400}
+      onClose={() => closeDialog(dialogId)}
+      footer={
+        <>
+          {status && <span className="mr-2">{status}</span>}
+          <LinkButton icon="icon-ok" onClick={ok} loading={busy}>
+            {lang.dialog.public['button-ok']}
+          </LinkButton>
+          <LinkButton icon="icon-cancel" onClick={() => closeDialog(dialogId)}>
+            {lang.dialog.public['button-cancel']}
+          </LinkButton>
+        </>
+      }
+    >
+      <div className="dialog">
+        <div className="mb-1 p-1 border border-[#c0c0c0] bg-[#ffffcc]">{L['tip-title']}</div>
+        <table>
+          <tbody>
+            <tr>
+              <td width="20%" className="title">{L['download-dir']}</td>
+              <td>
+                <ComboBox value={dir} options={dirOptions} onChange={setDir} width={450} editable />
+                <label className="ml-3">
+                  <input type="checkbox" checked={setDefault} onChange={(e) => setSetDefault(e.target.checked)} />
+                  {L['set-default-download-dir']}
+                </label>
+              </td>
+            </tr>
+            <tr>
+              <td className="title">{L['upload-file']}</td>
+              <td>
+                <input
+                  type="file"
+                  multiple
+                  accept=".torrent"
+                  onChange={(e) => setFileList(Array.from(e.target.files || []))}
+                />
+                {fileList.length > 0 && <div className="text-gray-600">{fileList.map((f) => f.name).join('、')}</div>}
+              </td>
+            </tr>
+            <tr>
+              <td className="title">{L['torrent-url']}</td>
+              <td>
+                <textarea
+                  className="eu-textbox"
+                  style={{ height: 130 }}
+                  value={urls}
+                  onChange={(e) => setUrls(e.target.value)}
+                />
+                <div>{L['tip-torrent-url']}</div>
+              </td>
+            </tr>
+            <tr>
+              <td colSpan={2}>
+                <hr />
+              </td>
+            </tr>
+            <tr>
+              <td className="title">{L.autostart}</td>
+              <td>
+                <SwitchButton checked={autostart} onChange={setAutostart} onText={lang.public['text-on']} offText={lang.public['text-off']} />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </Dialog>
+  )
+}
+
+/* ---------------- 删除确认 ---------------- */
+export function RemoveConfirmDialog({ dialogId, ids }: { dialogId: string; ids: number[] }) {
+  const { lang } = useLang()
+  const mutation = useRpcMutation()
+  const [removeData, setRemoveData] = useState(false)
+  const L = lang.dialog['torrent-remove']
+  return (
+    <Dialog
+      title={L.title}
+      width={350}
+      height={170}
+      onClose={() => closeDialog(dialogId)}
+      footer={
+        <>
+          <LinkButton
+            icon="icon-ok"
+            loading={mutation.isPending}
+            onClick={() =>
+              mutation.mutate(
+                { method: 'torrent-remove', args: { ids, 'delete-local-data': removeData } },
+                {
+                  onSuccess: () => closeDialog(dialogId),
+                  onError: () => alert(L['remove-error']),
+                },
+              )
+            }
+          >
+            {lang.dialog.public['button-ok']}
+          </LinkButton>
+          <LinkButton icon="icon-cancel" onClick={() => closeDialog(dialogId)}>
+            {lang.dialog.public['button-cancel']}
+          </LinkButton>
+        </>
+      }
+    >
+      <div className="p-2">
+        <span className="messager-question" />
+        <div>{L['confirm-text']}</div>
+        <hr />
+        <label>
+          <input type="checkbox" checked={removeData} onChange={(e) => setRemoveData(e.target.checked)} />
+          {L['remove-data']}
+        </label>
+      </div>
+    </Dialog>
+  )
+}
+
+/* ---------------- 重命名 ---------------- */
+export function RenameDialog({ dialogId, id }: { dialogId: string; id: number }) {
+  const { lang } = useLang()
+  useTorrents()
+  const snap = getSnapshot()
+  const mutation = useRpcMutation()
+  const torrent = snap.all[id]
+  const [name, setName] = useState(torrent?.name ?? '')
+  const [error, setError] = useState('')
+  if (!torrent) return null
+  const L = lang.dialog['torrent-rename']
+  return (
+    <Dialog
+      title={L.title}
+      width={520}
+      height={200}
+      onClose={() => closeDialog(dialogId)}
+      footer={
+        <>
+          {error && <span className="mr-2 text-red-600">{error}</span>}
+          <LinkButton
+            icon="icon-ok"
+            loading={mutation.isPending}
+            onClick={() => {
+              if (!name || name === torrent.name) {
+                setError(lang.public['text-nochange'])
+                setTimeout(() => setError(''), 2000)
+                return
+              }
+              if (!window.confirm(lang.public['text-confirm'])) return
+              mutation.mutate(
+                { method: 'torrent-rename-path', args: { ids: [id], path: '', name } },
+                {
+                  onSuccess: () => closeDialog(dialogId),
+                  onError: () => {
+                    setError(lang.error['rename-error'])
+                    setTimeout(() => setError(''), 2000)
+                  },
+                },
+              )
+            }}
+          >
+            {lang.dialog.public['button-ok']}
+          </LinkButton>
+          <LinkButton icon="icon-cancel" onClick={() => closeDialog(dialogId)}>
+            {lang.dialog.public['button-cancel']}
+          </LinkButton>
+        </>
+      }
+    >
+      <div className="dialog">
+        <table>
+          <tbody>
+            <tr>
+              <td width="20%" className="title">{L.oldname}</td>
+              <td>{torrent.name}</td>
+            </tr>
+            <tr>
+              <td className="title">{L.newname}</td>
+              <td>
+                <textarea className="eu-textbox" style={{ height: 50 }} value={name} onChange={(e) => setName(e.target.value)} />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </Dialog>
+  )
+}
+
+/* ---------------- 变更保存目录 ---------------- */
+export function ChangeDownloadDirDialog({ dialogId, ids }: { dialogId: string; ids: number[] }) {
+  const { lang } = useLang()
+  useTorrents()
+  const snap = getSnapshot()
+  const session = useSession()
+  const mutation = useRpcMutation()
+  const torrent = snap.all[ids[0]]
+  const L = lang.dialog['torrent-changeDownloadDir']
+  const [dir, setDir] = useState(torrent?.downloadDir ?? '')
+  const [moveData, setMoveData] = useState(true)
+  const [recheck, setRecheck] = useState(false)
+  const [progress, setProgress] = useState('')
+  const [error, setError] = useState('')
+
+  const dirOptions = useMemo(() => {
+    const list = uniq([
+      ...(session.data?.['download-dir'] ? [session.data['download-dir'] as string] : []),
+      ...snap.downloadDirs,
+      ...getFolderDictionary(),
+    ])
+    return list.map((d) => ({ value: d, text: d }))
+  }, [snap.downloadDirs, session.data])
+
+  if (!torrent) return null
+
+  const ok = async () => {
+    if (dir === torrent.downloadDir) {
+      setError(lang.public['text-nochange'])
+      setTimeout(() => setError(''), 2000)
+      return
+    }
+    let done = 0
+    for (const id of ids) {
+      const t = snap.all[id]
+      if (!t || t.downloadDir === dir) continue
+      setProgress(`-> ${t.name} [${done + 1}/${ids.length}]`)
+      await rpc('torrent-set-location', { ids: [id], location: dir, move: moveData })
+      done++
+    }
+    if (recheck && ids.length) {
+      await rpc('torrent-verify', { ids })
+    }
+    mutation.reset()
+    void mutation.mutate({ method: 'session-stats' })
+    closeDialog(dialogId)
+  }
+
+  return (
+    <Dialog
+      title={L.title}
+      width={520}
+      height={220}
+      onClose={() => closeDialog(dialogId)}
+      footer={
+        <>
+          {error && <span className="mr-2 text-red-600">{error}</span>}
+          <span className="mr-2">{progress}</span>
+          <LinkButton icon="icon-ok" onClick={ok}>
+            {lang.dialog.public['button-ok']}
+          </LinkButton>
+          <LinkButton icon="icon-cancel" onClick={() => closeDialog(dialogId)}>
+            {lang.dialog.public['button-cancel']}
+          </LinkButton>
+        </>
+      }
+    >
+      <div className="dialog">
+        <table>
+          <tbody>
+            <tr>
+              <td width="22%" className="title">{L['old-download-dir']}</td>
+              <td>{torrent.downloadDir}</td>
+            </tr>
+            <tr>
+              <td className="title">{L['new-download-dir']}</td>
+              <td>
+                <ComboBox value={dir} options={dirOptions} onChange={setDir} width={400} editable />
+              </td>
+            </tr>
+            <tr>
+              <td className="title" />
+              <td>
+                <label>
+                  <input type="checkbox" checked={moveData} onChange={(e) => setMoveData(e.target.checked)} />
+                  {L['move-data']}
+                </label>
+              </td>
+            </tr>
+            <tr>
+              <td className="title" />
+              <td>
+                <label>
+                  <input type="checkbox" checked={recheck} onChange={(e) => setRecheck(e.target.checked)} />
+                  {L['recheck-data']}
+                </label>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </Dialog>
+  )
+}
+
+/* ---------------- 上传/下载限速 ---------------- */
+export function ChangeSpeedLimitDialog({ dialogId, ids }: { dialogId: string; ids: number[] }) {
+  const { lang } = useLang()
+  useTorrents()
+  const snap = getSnapshot()
+  const mutation = useRpcMutation()
+  const torrent = snap.all[ids[0]] as (typeof snap.all)[number] & Record<string, unknown>
+  const L = lang.dialog['torrent-changeSpeedLimit']
+  const [downloadLimited, setDownloadLimited] = useState(!!torrent?.downloadLimited)
+  const [downloadLimit, setDownloadLimit] = useState(torrent?.downloadLimit ?? 0)
+  const [uploadLimited, setUploadLimited] = useState(!!torrent?.uploadLimited)
+  const [uploadLimit, setUploadLimit] = useState(torrent?.uploadLimit ?? 0)
+  const [peerLimit, setPeerLimit] = useState(Number(torrent?.['peer-limit'] ?? 60))
+
+  if (!torrent) return null
+
+  const ok = () => {
+    mutation.mutate({
+      method: 'torrent-set',
+      args: {
+        ids,
+        downloadLimited,
+        downloadLimit,
+        uploadLimited,
+        uploadLimit,
+        'peer-limit': peerLimit,
+      },
+    })
+    closeDialog(dialogId)
+  }
+
+  return (
+    <Dialog
+      title={L.title}
+      width={600}
+      height={200}
+      onClose={() => closeDialog(dialogId)}
+      footer={
+        <>
+          <LinkButton icon="icon-ok" onClick={ok}>
+            {lang.dialog.public['button-ok']}
+          </LinkButton>
+          <LinkButton icon="icon-cancel" onClick={() => closeDialog(dialogId)}>
+            {lang.dialog.public['button-cancel']}
+          </LinkButton>
+        </>
+      }
+    >
+      <div className="dialog">
+        <table>
+          <tbody>
+            <tr>
+              <td className="title">
+                <label>
+                  <input type="checkbox" checked={downloadLimited} onChange={(e) => setDownloadLimited(e.target.checked)} />
+                  {L.downloadLimited}
+                </label>
+              </td>
+              <td>
+                <NumberSpinner value={downloadLimit} onChange={setDownloadLimit} width={200} disabled={!downloadLimited} /> KB/s
+              </td>
+            </tr>
+            <tr>
+              <td className="title">
+                <label>
+                  <input type="checkbox" checked={uploadLimited} onChange={(e) => setUploadLimited(e.target.checked)} />
+                  {L.uploadLimited}
+                </label>
+              </td>
+              <td>
+                <NumberSpinner value={uploadLimit} onChange={setUploadLimit} width={200} disabled={!uploadLimited} /> KB/s
+              </td>
+            </tr>
+            <tr>
+              <td className="title">{L['peer-limit']}</td>
+              <td>
+                <NumberSpinner value={peerLimit} onChange={setPeerLimit} width={200} />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </Dialog>
+  )
+}
+
+/* ---------------- 增加 Tracker ---------------- */
+export function AddTrackerDialog({ dialogId, ids }: { dialogId: string; ids: number[] }) {
+  const { lang } = useLang()
+  const mutation = useRpcMutation()
+  const L = lang.dialog['torrent-attribute-add-tracker']
+  const [urls, setUrls] = useState('')
+  return (
+    <Dialog
+      title={L.title}
+      width={520}
+      height={240}
+      onClose={() => closeDialog(dialogId)}
+      footer={
+        <>
+          <LinkButton
+            icon="icon-ok"
+            loading={mutation.isPending}
+            onClick={() => {
+              const list = urls.split('\n').map((s) => s.trim()).filter(Boolean)
+              if (!list.length) return
+              const existing: unknown[] = []
+              mutation.mutate(
+                { method: 'torrent-set', args: { ids, trackerAdd: list } },
+                { onSuccess: () => closeDialog(dialogId) },
+              )
+              void existing
+            }}
+          >
+            {lang.dialog.public['button-ok']}
+          </LinkButton>
+          <LinkButton icon="icon-cancel" onClick={() => closeDialog(dialogId)}>
+            {lang.dialog.public['button-cancel']}
+          </LinkButton>
+        </>
+      }
+    >
+      <div className="dialog">
+        <div>{L.tip}</div>
+        <textarea className="eu-textbox" style={{ height: 120 }} value={urls} onChange={(e) => setUrls(e.target.value)} />
+      </div>
+    </Dialog>
+  )
+}
+
+/* ---------------- 替换 Tracker（全局） ---------------- */
+export function ReplaceTrackerDialog({ dialogId }: { dialogId: string }) {
+  const { lang } = useLang()
+  useTorrents()
+  const snap = getSnapshot()
+  const L = lang.dialog['system-replaceTracker']
+  const [oldUrl, setOldUrl] = useState('')
+  const [newUrl, setNewUrl] = useState('')
+  const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const ok = async () => {
+    if (!oldUrl || !newUrl || oldUrl === newUrl) {
+      setMessage(lang.public['text-nochange'])
+      setTimeout(() => setMessage(''), 2000)
+      return
+    }
+    if (!window.confirm(lang.public['text-confirm'])) return
+    setBusy(true)
+    let count = 0
+    for (const t of Object.values(snap.all)) {
+      for (const ts of t.trackerStats || []) {
+        if (ts.announce === oldUrl) {
+          await rpc('torrent-set', { ids: [t.id], trackerReplace: [ts.id, newUrl] })
+          count++
+        }
+      }
+    }
+    setBusy(false)
+    if (count === 0) {
+      setMessage(L['not-found'])
+      setTimeout(() => setMessage(''), 2500)
+    } else {
+      closeDialog(dialogId)
+    }
+  }
+
+  return (
+    <Dialog
+      title={L.title}
+      width={520}
+      height={200}
+      onClose={() => closeDialog(dialogId)}
+      footer={
+        <>
+          {message && <span className="mr-2">{message}</span>}
+          <LinkButton icon="icon-ok" onClick={ok} loading={busy}>
+            {lang.dialog.public['button-ok']}
+          </LinkButton>
+          <LinkButton icon="icon-cancel" onClick={() => closeDialog(dialogId)}>
+            {lang.dialog.public['button-cancel']}
+          </LinkButton>
+        </>
+      }
+    >
+      <div className="dialog">
+        <span className="tip block mb-1" dangerouslySetInnerHTML={{ __html: L.tip }} />
+        <table>
+          <tbody>
+            <tr>
+              <td width="20%" className="title">{L['old-tracker']}</td>
+              <td>
+                <input className="eu-textbox w-full" value={oldUrl} onChange={(e) => setOldUrl(e.target.value)} />
+              </td>
+            </tr>
+            <tr>
+              <td className="title">{L['new-tracker']}</td>
+              <td>
+                <input className="eu-textbox w-full" value={newUrl} onChange={(e) => setNewUrl(e.target.value)} />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </Dialog>
+  )
+}
+
+/* ---------------- 关于 ---------------- */
+export function AboutDialog({ dialogId }: { dialogId: string }) {
+  const { lang } = useLang()
+  const session = useSession()
+  const L = lang.dialog.about
+  return (
+    <Dialog title={lang.toolbar.about} width={420} height={370} onClose={() => closeDialog(dialogId)}>
+      <div className="text-center leading-6">
+        <img src="/assets/images/logo.png" width={64} height={64} className="mx-auto" alt="logo" />
+        <div>Transmission: {session.data?.version ?? '-'}, RPC: {session.data?.['rpc-version'] ?? '-'}</div>
+        <div>Web Control: 1.6.1-next (React 重制版)</div>
+        <div>Copyright © 2012-2019 栽培者</div>
+        <div className="py-2 flex justify-center gap-1">
+          <a className="l-btn" href="https://github.com/ronggang/transmission-web-control" target="_blank" rel="noreferrer" title={L.home}>
+            <i className="iconfont tr-icon-github" />
+          </a>
+          <a className="l-btn" href="https://github.com/ronggang/transmission-web-control/wiki" target="_blank" rel="noreferrer" title={L.help}>
+            <i className="iconfont tr-icon-help" />
+          </a>
+          <a className="l-btn" href="https://github.com/ronggang/transmission-web-control/releases" target="_blank" rel="noreferrer" title={L['check-update']}>
+            <i className="iconfont tr-icon-update" />
+          </a>
+        </div>
+        <hr />
+        <div>
+          Thanks:{' '}
+          <a className="text-[#0066cc]" href="https://transmissionbt.com/" target="_blank" rel="noreferrer">Transmission</a>{' '}
+          <a className="text-[#0066cc]" href="https://jquery.com/" target="_blank" rel="noreferrer">jQuery</a>{' '}
+          <a className="text-[#0066cc]" href="https://www.jeasyui.com/" target="_blank" rel="noreferrer">EasyUI</a>{' '}
+          <a className="text-[#0066cc]" href="https://iconfont.cn/" target="_blank" rel="noreferrer">Iconfont</a>
+        </div>
+      </div>
+    </Dialog>
+  )
+}
+
+/* ---------------- 设置用户标签 ---------------- */
+export function SetLabelsDialog({ dialogId, hashs }: { dialogId: string; hashs: string[] }) {
+  const { lang } = useLang()
+  const config = useConfig()
+  const L = lang.dialog['torrent-setLabels']
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  // 初始化：取第一个种子的现有标签
+  useMemo(() => {
+    const first = config.labelMaps[hashs[0]]
+    if (first) setSelected(new Set(first))
+  }, [hashs])
+  return (
+    <Dialog
+      title={L.title}
+      width={520}
+      height={220}
+      onClose={() => closeDialog(dialogId)}
+      footer={
+        <>
+          <LinkButton
+            icon="icon-ok"
+            onClick={() => {
+              const maps = { ...config.labelMaps }
+              const ids = Array.from(selected)
+              for (const h of hashs) {
+                if (ids.length) maps[h] = ids
+                else delete maps[h]
+              }
+              saveConfig({ labelMaps: maps })
+              closeDialog(dialogId)
+            }}
+          >
+            {lang.dialog.public['button-ok']}
+          </LinkButton>
+          <LinkButton icon="icon-cancel" onClick={() => closeDialog(dialogId)}>
+            {lang.dialog.public['button-cancel']}
+          </LinkButton>
+        </>
+      }
+    >
+      <div className="flex h-full">
+        <div className="w-1/2">
+          <div>{L.available}</div>
+          <div className="p-1">
+            {config.labels.map((lb, i) =>
+              selected.has(i) ? null : (
+                <a
+                  key={i}
+                  className="user-label-big"
+                  style={{ backgroundColor: lb.color, color: getGrayLevel(lb.color) > 0.5 ? '#000' : '#fff' }}
+                  onClick={() => setSelected(new Set([...selected, i]))}
+                >
+                  {lb.name}
+                </a>
+              ),
+            )}
+          </div>
+        </div>
+        <div className="w-1/2 border-l border-dotted border-[#ccc] pl-1">
+          <div>{L.selected}</div>
+          <div className="p-1">
+            {[...selected].map((i) => {
+              const lb = config.labels[i]
+              if (!lb) return null
+              return (
+                <a
+                  key={i}
+                  className="user-label-big"
+                  style={{ backgroundColor: lb.color, color: getGrayLevel(lb.color) > 0.5 ? '#000' : '#fff' }}
+                  onClick={() => {
+                    const next = new Set(selected)
+                    next.delete(i)
+                    setSelected(next)
+                  }}
+                >
+                  {lb.name}
+                </a>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    </Dialog>
+  )
+}
+
+export { SystemConfigDialog }

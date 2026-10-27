@@ -1,0 +1,732 @@
+@import 'tailwindcss';
+@import '../assets/iconfont/iconfont.css';
+
+/*
+ * Transmission Web Control (next) — 复刻 jQuery EasyUI default 主题的外观。
+ * 关键配色取自原项目 easyui.css：
+ *   边框 #95B8E7 / 面板头渐变 #EFF5FF→#E0ECFF / 选中行 #ffe48d
+ *   悬停 #eaf2ff / 斑马行 #fafafa / 菜单 #fafafa 边框 #ddd
+ */
+:root {
+  --eu-border: #95b8e7;
+  --eu-header-top: #eff5ff;
+  --eu-header-bottom: #e0ecff;
+  --eu-title: #0e2d5f;
+  --eu-selected: #ffe48d;
+  --eu-hover: #eaf2ff;
+  --eu-hover-border: #b7d2ff;
+  --eu-alt: #fafafa;
+  --eu-toolbar: #f0f0f0;
+  --eu-dialog-btn: #f4f4f4;
+  --eu-line: #dddddd;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+* {
+  font-size: 12px;
+  font-family: 微软雅黑, 宋体, Arial, Verdana, Tahoma, Roboto, sans-serif;
+  box-sizing: border-box;
+}
+
+/* ---------- 原生控件统一 12px ---------- */
+input,
+select,
+textarea,
+button {
+  font-size: 12px;
+  font-family: inherit;
+}
+
+/* ---------- EasyUI 风格基础类 ---------- */
+.eu-panel {
+  background: #fff;
+  border: 1px solid var(--eu-border);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.eu-panel-header {
+  padding: 5px;
+  color: var(--eu-title);
+  background: linear-gradient(to bottom, var(--eu-header-top) 0, var(--eu-header-bottom) 100%);
+  border-bottom: 1px solid var(--eu-border);
+  white-space: nowrap;
+  flex: none;
+}
+.eu-panel-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* split 拖动条 */
+.eu-splitter-v {
+  width: 5px;
+  cursor: col-resize;
+  background: linear-gradient(to right, #eaf2ff, #e0ecff);
+  border-left: 1px solid var(--eu-border);
+  border-right: 1px solid var(--eu-border);
+  flex: none;
+}
+.eu-splitter-h {
+  height: 5px;
+  cursor: row-resize;
+  background: linear-gradient(to bottom, #eaf2ff, #e0ecff);
+  border-top: 1px solid var(--eu-border);
+  border-bottom: 1px solid var(--eu-border);
+  flex: none;
+}
+
+/* 折叠面板的收起按钮（面板头右侧） */
+.eu-tool {
+  float: right;
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  opacity: 0.6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.eu-tool:hover {
+  opacity: 1;
+}
+
+/* ---------- 工具栏按钮（linkbutton plain） ---------- */
+.l-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 24px;
+  padding: 0 4px;
+  margin: 0;
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: #444;
+  text-decoration: none;
+  vertical-align: middle;
+  user-select: none;
+  background: transparent;
+}
+.l-btn:hover:not(.l-btn-disabled) {
+  background: var(--eu-hover);
+  border-color: var(--eu-hover-border);
+  color: #000;
+}
+.l-btn-disabled,
+.l-btn-disabled:hover {
+  opacity: 0.5;
+  cursor: default;
+  background: transparent;
+  border-color: transparent;
+  color: #444;
+}
+.l-btn .iconfont {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* 工具栏分隔符 */
+.button-split {
+  color: #808080;
+  margin: 0 3px;
+}
+
+/* ---------- 输入控件 ---------- */
+.eu-textbox {
+  border: 1px solid var(--eu-border);
+  border-radius: 5px;
+  background: #fff;
+  padding: 2px 4px;
+  height: 22px;
+  outline: none;
+}
+.eu-textbox:focus {
+  border-color: #6b9cde;
+  box-shadow: 0 0 3px #6b9cde;
+}
+.eu-textbox:disabled {
+  background: #f5f5f5;
+  color: #999;
+}
+textarea.eu-textbox {
+  height: auto;
+  padding: 4px;
+}
+
+/* ---------- 表格（datagrid） ---------- */
+.eu-datagrid {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: #fff;
+}
+.eu-datagrid-header {
+  flex: none;
+  overflow: hidden;
+  background: linear-gradient(to bottom, #f9f9f9 0, #efefef 100%);
+  border-bottom: 1px solid #ddd;
+  color: #0e2d5f;
+}
+.eu-datagrid-header table,
+.eu-datagrid-body table {
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+  table-layout: fixed;
+}
+.eu-datagrid-header td {
+  border-right: 1px dotted #ccc;
+  padding: 0;
+  font-weight: normal;
+}
+.eu-datagrid-header .datagrid-cell {
+  padding: 4px 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: default;
+  user-select: none;
+  position: relative;
+}
+.eu-datagrid-header .datagrid-cell.sortable:hover {
+  background: #eaf2ff;
+}
+.eu-datagrid-header .datagrid-cell .sort-icon {
+  position: absolute;
+  right: 2px;
+  top: 3px;
+  font-size: 8px;
+  color: #a02020;
+}
+.eu-datagrid-header .col-resizer {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 5px;
+  height: 100%;
+  cursor: col-resize;
+}
+.eu-datagrid-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.eu-datagrid-body td {
+  border-right: 1px dotted #ccc;
+  border-bottom: 1px dotted #eee;
+  padding: 0;
+}
+.eu-datagrid-cell {
+  padding: 3px 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.eu-datagrid-row.alt {
+  background: var(--eu-alt);
+}
+.eu-datagrid-row.selected > td {
+  background: var(--eu-selected);
+  color: #000;
+}
+.eu-datagrid-row:hover:not(.selected) > td {
+  background: var(--eu-hover);
+}
+
+/* 分页栏 */
+.eu-pagination {
+  flex: none;
+  border-top: 1px solid var(--eu-border);
+  background: #f5f5f5;
+  padding: 2px 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+}
+.eu-pagination-info {
+  margin-left: auto;
+  color: #444;
+}
+
+/* ---------- 树 ---------- */
+.eu-tree {
+  overflow: auto;
+  padding: 4px 0;
+  flex: 1;
+  min-height: 0;
+}
+.eu-tree-node {
+  white-space: nowrap;
+  height: 20px;
+  line-height: 20px;
+  cursor: pointer;
+}
+.eu-tree-node:hover {
+  background: var(--eu-hover);
+}
+.eu-tree-node.selected {
+  background: var(--eu-selected);
+}
+.eu-tree-indent {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+}
+.eu-tree-switch {
+  display: inline-block;
+  width: 16px;
+  height: 18px;
+  vertical-align: middle;
+  background: url('/assets/images/tree_icons.png') no-repeat;
+}
+.eu-tree-switch.open {
+  background-position: -32px 0;
+}
+.eu-tree-switch.closed {
+  background-position: -16px 0;
+}
+.eu-tree-switch.leaf {
+  background: none;
+}
+.eu-tree-icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+  margin-right: 2px;
+  font-size: 16px;
+  line-height: 16px;
+}
+.nav-torrents-number {
+  color: #1c5f9c;
+}
+.nav-total-size {
+  color: #666;
+}
+
+/* ---------- 菜单 ---------- */
+.eu-menu {
+  position: fixed;
+  z-index: 9999;
+  background: #fafafa;
+  border: 1px solid #ddd;
+  padding: 2px;
+  min-width: 180px;
+  box-shadow: 2px 2px 3px #cccccc;
+}
+.eu-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 4px;
+  cursor: default;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.eu-menu-item:hover:not(.disabled) {
+  background: var(--eu-hover);
+  border-color: var(--eu-hover-border);
+}
+.eu-menu-item.disabled {
+  color: #aaa;
+}
+.eu-menu-sep {
+  height: 1px;
+  background: #e0e0e0;
+  margin: 2px 1px;
+}
+
+/* ---------- 对话框 ---------- */
+.eu-dialog-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 9000;
+}
+.eu-dialog {
+  position: fixed;
+  z-index: 9001;
+  background: linear-gradient(to bottom, #eff5ff 0, #e0ecff 20%);
+  border: 1px solid var(--eu-border);
+  padding: 5px;
+  box-shadow: 3px 3px 8px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+}
+.eu-dialog-header {
+  padding: 4px 6px;
+  color: var(--eu-title);
+  font-size: 12px;
+}
+.eu-dialog-body {
+  background: #fff;
+  border: 1px solid var(--eu-border);
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px;
+}
+.eu-dialog-footer {
+  flex: none;
+  text-align: right;
+  padding: 6px 8px;
+  background: var(--eu-dialog-btn);
+  border: 1px solid var(--eu-line);
+  border-top-color: var(--eu-border);
+  margin-top: 4px;
+}
+
+/* ---------- Tabs ---------- */
+.eu-tabs {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+}
+.eu-tabs-left {
+  flex-direction: row;
+}
+.eu-tabs-header {
+  flex: none;
+  background: linear-gradient(to bottom, #f9f9f9, #efefef);
+  border: 1px solid var(--eu-border);
+  padding: 2px;
+  display: flex;
+}
+.eu-tabs-left .eu-tabs-header {
+  flex-direction: column;
+  width: 108px;
+}
+.eu-tabs-tab {
+  white-space: nowrap;
+  padding: 3px 10px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  color: #0e2d5f;
+  background: linear-gradient(to bottom, #eff5ff, #e0ecff);
+  margin: 1px 0;
+}
+.eu-tabs-left .eu-tabs-tab {
+  border-radius: 5px 0 0 5px;
+}
+.eu-tabs-tab:hover {
+  background: #eaf2ff;
+}
+.eu-tabs-tab.selected {
+  background: #fff;
+  font-weight: bold;
+  border-color: var(--eu-border);
+}
+.eu-tabs-body {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--eu-border);
+  border-left: 0;
+  background: #fff;
+  overflow: auto;
+  padding: 2px;
+}
+
+/* ---------- 种子进度条 ---------- */
+.torrent-progress {
+  margin-top: 1px;
+  height: 13px;
+  width: 100%;
+  border: 1px #c0c0c0 solid;
+  text-align: center;
+  position: relative;
+  font-size: 9px;
+  font-family: Arial, Verdana, Tahoma;
+}
+.torrent-progress-text {
+  height: 100%;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  line-height: 13px;
+  z-index: 1;
+}
+.torrent-progress-bar {
+  height: 100%;
+  width: 0;
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 0;
+}
+.torrent-progress-download {
+  background-color: #77bbff;
+}
+.torrent-progress-error {
+  background-color: #bf4040;
+}
+.torrent-progress-warning {
+  background-color: #cc9900;
+}
+.torrent-progress-seed {
+  background-color: #acffac;
+}
+.torrent-progress-stop {
+  background-color: #808080;
+}
+.torrent-progress-check {
+  background-color: #808040;
+}
+
+/* ---------- 列表内图标标签 ---------- */
+.iconlabel {
+  display: inline-block;
+  width: auto;
+  height: 16px;
+  padding-left: 19px;
+  background-repeat: no-repeat;
+}
+.icon-up {
+  background: url('/assets/images/up.png') no-repeat;
+}
+.icon-down {
+  background: url('/assets/images/down.png') no-repeat;
+}
+.icon-exclamation {
+  background: url('/assets/images/error.png') no-repeat;
+}
+.icon-warning-type1 {
+  background: url('/assets/images/warning.png') no-repeat;
+}
+.icon-pause-small {
+  background: url('/assets/images/pause-small.png') no-repeat;
+}
+.icon-checking {
+  background: url('/assets/images/checking.png') no-repeat;
+}
+.icon-wait {
+  background: url('/assets/images/disabled.png') no-repeat;
+}
+.icon-deny {
+  background: url('/assets/images/deny.png') no-repeat;
+}
+.icon-allow {
+  background: url('/assets/images/allow.png') no-repeat;
+}
+.icon-flag-0 {
+  background: url('/assets/images/flag-0.png') no-repeat;
+}
+.icon-flag-1 {
+  background: url('/assets/images/flag-1.png') no-repeat;
+}
+.icon-flag--1 {
+  background: url('/assets/images/flag--1.png') no-repeat;
+}
+.icon-flag-edit {
+  background: url('/assets/images/flag-edit.png') no-repeat;
+}
+.icon-loading {
+  background: url('/assets/images/loading.gif') no-repeat;
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+}
+
+/* PNG 图标（EasyUI icons / 原项目 images），用于按钮与菜单 */
+i.icon-ok,
+i.icon-cancel,
+i.icon-enabled,
+i.icon-disabled,
+i.icon-transmission,
+i.icon-allow,
+i.icon-deny,
+i.icon-flag-edit,
+i.icon-save,
+i.icon-filter,
+i.icon-tracker-add,
+i.icon-tracker-edit,
+i.icon-tracker-remove {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background-repeat: no-repeat;
+  background-position: center;
+  vertical-align: middle;
+}
+i.icon-ok {
+  background-image: url('/assets/easyui-icons/ok.png');
+}
+i.icon-cancel {
+  background-image: url('/assets/easyui-icons/cancel.png');
+}
+i.icon-save {
+  background-image: url('/assets/easyui-icons/save.png');
+}
+i.icon-filter {
+  background-image: url('/assets/easyui-icons/filter.png');
+}
+i.icon-enabled {
+  background-image: url('/assets/images/enabled.png');
+}
+i.icon-disabled {
+  background-image: url('/assets/images/disabled.png');
+}
+i.icon-transmission {
+  background-image: url('/assets/images/transmission.png');
+}
+i.icon-allow {
+  background-image: url('/assets/images/allow.png');
+}
+i.icon-deny {
+  background-image: url('/assets/images/deny.png');
+}
+i.icon-flag-edit {
+  background-image: url('/assets/images/flag-edit.png');
+}
+
+.text-status-error {
+  color: red;
+}
+.text-status-warning {
+  color: #cc9900;
+}
+
+/* ---------- 用户标签 ---------- */
+.user-label {
+  display: inline-block;
+  padding: 0 2px;
+  margin-right: 2px;
+  border-radius: 2px;
+  box-shadow: inset 0 -1px 0 rgba(27, 31, 35, 0.12);
+}
+.user-label-big {
+  display: inline-block;
+  padding: 5px;
+  margin: 0 3px 3px 0;
+  border-radius: 2px;
+  box-shadow: inset 0 -1px 0 rgba(27, 31, 35, 0.12);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* ---------- 详情面板 pieces 方块 ---------- */
+#torrent-attribute-pieces {
+  line-height: 10px;
+}
+#torrent-attribute-pieces > i {
+  background-color: mediumseagreen;
+  border: 1px solid white;
+  display: inline-block !important;
+  height: 10px !important;
+  width: 10px !important;
+  margin: 1px;
+}
+
+/* ---------- 表单 ---------- */
+.dialog table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.dialog td {
+  padding: 3px 4px;
+  vertical-align: middle;
+}
+.dialog td.title {
+  text-align: right;
+  vertical-align: top;
+  white-space: nowrap;
+}
+.dialog input[type='text'],
+.dialog select,
+.dialog textarea {
+  width: 99%;
+}
+.dialog hr {
+  border: 0;
+  border-top: 1px solid #ccc;
+  margin: 4px 0;
+}
+
+/* 提示条 */
+.tip {
+  padding: 5px;
+  padding-left: 25px;
+  text-align: left;
+  border: 1px solid #ff9900;
+  background: #ffffcc url('/assets/images/balloon.png') left no-repeat;
+  background-position: 5px 6px;
+  color: #555555;
+  margin-bottom: 2px;
+  display: block;
+}
+
+/* messager 图标 */
+.messager-question {
+  background: url('/assets/images/question.png') no-repeat;
+  display: inline-block;
+  width: 32px;
+  height: 32px;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+
+/* 拖放区 */
+.dropArea {
+  background-color: #ccffff;
+  border: 2px dashed #000000;
+  position: absolute;
+  z-index: 100;
+  top: 20px;
+  left: 20px;
+  right: 20px;
+  bottom: 20px;
+  opacity: 0.4;
+}
+
+/* toast */
+.eu-toast {
+  position: fixed;
+  top: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  background: #ffffcc;
+  border: 1px solid #ff9900;
+  color: #555;
+  padding: 6px 14px;
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+/* 滚动条（EasyUI 风格） */
+.eu-datagrid-body::-webkit-scrollbar,
+.eu-tree::-webkit-scrollbar,
+.eu-dialog-body::-webkit-scrollbar,
+.eu-tabs-body::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+.eu-datagrid-body::-webkit-scrollbar-thumb,
+.eu-tree::-webkit-scrollbar-thumb,
+.eu-dialog-body::-webkit-scrollbar-thumb,
+.eu-tabs-body::-webkit-scrollbar-thumb {
+  background: linear-gradient(to right, #e0ecff, #c8ddf5);
+  border: 1px solid #95b8e7;
+  border-radius: 6px;
+}
