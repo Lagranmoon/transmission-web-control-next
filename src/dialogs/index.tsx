@@ -9,6 +9,12 @@ import { getFolderDictionary, useConfig, saveConfig } from '../lib/config'
 import { rpc, addTorrentFile } from '../lib/rpc'
 import { getGrayLevel, uniq } from '../lib/format'
 import { SystemConfigDialog } from './SystemConfigDialog'
+import {
+  ExportConfigDialog,
+  ImportConfigDialog,
+  AutoMatchDialog,
+  AutoMatchDictionaryDialog,
+} from './ConfigToolsDialogs'
 
 /* 对话框宿主：根据 uiStore.dialogs 栈渲染对应组件 */
 export function DialogHost() {
@@ -40,6 +46,14 @@ export function DialogHost() {
             return <AboutDialog key={d.id} dialogId={d.id} />
           case 'torrent-setLabels':
             return <SetLabelsDialog key={d.id} dialogId={d.id} hashs={p.hashs} />
+          case 'export-config':
+            return <ExportConfigDialog key={d.id} dialogId={d.id} />
+          case 'import-config':
+            return <ImportConfigDialog key={d.id} dialogId={d.id} />
+          case 'auto-match':
+            return <AutoMatchDialog key={d.id} dialogId={d.id} ids={p.ids} />
+          case 'auto-match-dictionary':
+            return <AutoMatchDictionaryDialog key={d.id} dialogId={d.id} onSaved={p.onSaved} />
           default:
             return null
         }
@@ -160,7 +174,7 @@ export function AddTorrentDialog({ dialogId, files }: { dialogId: string; files?
                   accept=".torrent"
                   onChange={(e) => setFileList(Array.from(e.target.files || []))}
                 />
-                {fileList.length > 0 && <div className="text-gray-600">{fileList.map((f) => f.name).join('、')}</div>}
+                {fileList.length > 0 && <div className="text-[var(--eu-text)]">{fileList.map((f) => f.name).join('、')}</div>}
               </td>
             </tr>
             <tr>

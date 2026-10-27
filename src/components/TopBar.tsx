@@ -9,6 +9,7 @@ import { getSnapshot, setSearchResult } from '../lib/torrents'
 import { formatSize } from '../lib/format'
 import type { Torrent } from '../lib/types'
 
+// 主题列表与原版 config.js 一致；黑底主题使用白色 logo
 const THEMES = [
   { value: 'default', text: 'Default', group: 'Base' },
   { value: 'gray', text: 'Gray', group: 'Base' },
@@ -16,7 +17,25 @@ const THEMES = [
   { value: 'material', text: 'Material', group: 'Base' },
   { value: 'bootstrap', text: 'Bootstrap', group: 'Base' },
   { value: 'black', text: 'Black', group: 'Base' },
+  { value: 'metro-blue', text: 'Metro Blue', group: 'Metro' },
+  { value: 'metro-gray', text: 'Metro Gray', group: 'Metro' },
+  { value: 'metro-green', text: 'Metro Green', group: 'Metro' },
+  { value: 'metro-orange', text: 'Metro Orange', group: 'Metro' },
+  { value: 'metro-red', text: 'Metro Red', group: 'Metro' },
+  { value: 'ui-cupertino', text: 'Cupertino', group: 'UI' },
+  { value: 'ui-dark-hive', text: 'Dark Hive', group: 'UI' },
+  { value: 'ui-pepper-grinder', text: 'Pepper Grinder', group: 'UI' },
+  { value: 'ui-sunny', text: 'Sunny', group: 'UI' },
 ]
+
+const DARK_THEMES = new Set(['black', 'ui-dark-hive'])
+
+/** 应用主题（<html data-theme> + logo 联动） */
+export function applyTheme(theme: string) {
+  document.documentElement.dataset.theme = theme
+  const logo = document.getElementById('logo') as HTMLImageElement | null
+  if (logo) logo.src = DARK_THEMES.has(theme) ? '/assets/logo-white.png' : '/assets/logo.png'
+}
 
 export function TopBar() {
   const { lang } = useLang()
@@ -30,7 +49,7 @@ export function TopBar() {
     <div className="eu-panel" style={{ borderTop: 0, borderLeft: 0, borderRight: 0 }}>
       {/* 标题行 */}
       <div className="eu-panel-header" style={{ height: 47, display: 'flex', alignItems: 'center' }}>
-        <img src="/assets/logo.png" width={180} height={50} style={{ objectFit: 'contain' }} alt="logo" />
+        <img id="logo" src={DARK_THEMES.has(config.theme) ? '/assets/logo-white.png' : '/assets/logo.png'} width={180} height={50} style={{ objectFit: 'contain' }} alt="logo" />
         <div className="ml-auto flex items-center gap-2 pr-2">
           <span>Theme: </span>
           <ComboBox
@@ -38,21 +57,21 @@ export function TopBar() {
             value={config.theme}
             options={THEMES}
             onChange={(v) => {
+              applyTheme(v)
               saveConfig({ theme: v })
-              showToast('主题已切换（新主题配色逐步适配中）')
             }}
           />
           <span className="button-split">|</span>
           <LinkButton
             icon="tr-icon-server"
             title={lang.toolbar.tip['ui-mobile']}
-            onClick={() => showToast('移动版界面尚未实现')}
+            onClick={() => (window.location.hash = '#/mobile')}
           />
           <span className="button-split">|</span>
           <LinkButton
             icon="icon-transmission"
             title={lang.toolbar.tip['ui-original']}
-            onClick={() => showToast('原版界面切换在独立部署时可用')}
+            onClick={() => (window.location.href = 'index.original.html')}
           />
           <span className="button-split">|</span>
           <LinkButton
@@ -67,7 +86,7 @@ export function TopBar() {
       <Toolbar />
       {/* 底部状态栏 */}
       <div
-        className="flex items-center px-2 gap-2 bg-[#f0f0f0] border-t border-[#95b8e7]"
+        className="flex items-center px-2 gap-2 bg-[var(--eu-toolbar)] border-t border-[var(--eu-border)]"
         style={{ height: 22 }}
       >
         <span
@@ -92,7 +111,7 @@ export function TopBar() {
           {lang.dialog['system-config']['download-dir-free-space']}{' '}
           {session.data ? formatSize((session.data as Record<string, number>)['download-dir-free-space'] ?? 0) : '…'}
         </span>
-        <span className="ml-auto text-gray-600">
+        <span className="ml-auto text-[var(--eu-text)]">
           {version ? `Transmission ${lang.statusbar.version}${version}, RPC: ${session.data?.['rpc-version']}, WEB Control: 1.6.1-next` : ''}
         </span>
         {ui.toast && <span className="eu-toast" style={{ position: 'static', transform: 'none' }}>{ui.toast}</span>}
@@ -161,7 +180,7 @@ function Toolbar() {
 
   return (
     <div
-      className="bg-[#f0f0f0] px-1 py-0.5 flex items-center flex-wrap gap-0.5 border-t border-[#d8d8d8]"
+      className="bg-[var(--eu-toolbar)] px-1 py-0.5 flex items-center flex-wrap gap-0.5 border-t border-[#d8d8d8]"
       style={{ minHeight: 28 }}
     >
       <LinkButton
@@ -206,8 +225,8 @@ function Toolbar() {
                 id: 'auto-match',
                 text: (lang.menus.plugin as Record<string, string>)['auto-match-data-folder'],
                 icon: 'tr-icon-auto-match',
-                disabled: true,
-                onClick: () => {},
+                disabled: ui.checkedIds.length === 0,
+                onClick: () => openDialog('auto-match', { ids: ui.checkedIds.slice() }),
               },
             ],
             rect.left,

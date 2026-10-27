@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { Dialog, LinkButton, NumberSpinner, SwitchButton, ComboBox } from '../components/ui'
 import { useLang, LANGUAGES } from '../i18n'
-import { closeDialog, showToast } from '../lib/ui'
+import { closeDialog, openDialog, showToast } from '../lib/ui'
 import { useSession, useRpcMutation, useFreeSpace } from '../api/queries'
 import { configStore, getFolderDictionary, setFolderDictionary, saveConfig, useConfig } from '../lib/config'
 import { formatSize } from '../lib/format'
@@ -94,7 +94,7 @@ export function SystemConfigDialog({ dialogId }: { dialogId: string }) {
         {tabs.map((t) => (
           <span
             key={t.id}
-            className={`px-2 py-0.5 cursor-pointer rounded-t ${tab === t.id ? 'bg-[#ffe48d] border border-b-0 border-[#95b8e7]' : 'hover:bg-[#eaf2ff]'}`}
+            className={`px-2 py-0.5 cursor-pointer rounded-t ${tab === t.id ? 'bg-[var(--eu-selected)] border border-b-0 border-[var(--eu-border)]' : 'hover:bg-[var(--eu-hover)]'}`}
             onClick={() => setTab(t.id)}
           >
             {t.title}
@@ -441,6 +441,55 @@ export function SystemConfigDialog({ dialogId }: { dialogId: string }) {
                   </LinkButton>
                 </td>
               </tr>
+              <tr>
+                <td className="title">{L['ipinfo']}</td>
+                <td colSpan={3}>
+                  <input
+                    className="eu-textbox"
+                    style={{ width: 260 }}
+                    value={(config as { ipInfoToken?: string }).ipInfoToken ?? ''}
+                    onChange={(e) => saveConfig({ ipInfoToken: e.target.value })}
+                    placeholder="token"
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td className="title" style={{ verticalAlign: 'top' }}>{L.ipInfoCustom}</td>
+                <td colSpan={3}>
+                  <div className="mb-1" style={{ color: '#666' }} dangerouslySetInnerHTML={{ __html: L.ipInfoCustomTips }} />
+                  <div className="flex items-center gap-2 mb-1">
+                    <span style={{ width: 160, textAlign: 'right' }}>{L.ipInfoCountryCodeUrl}</span>
+                    <input
+                      className="eu-textbox flex-1"
+                      value={(config as { ipInfoFlagUrl?: string }).ipInfoFlagUrl ?? ''}
+                      onChange={(e) => saveConfig({ ipInfoFlagUrl: e.target.value })}
+                      placeholder="https://your.service/flag?ip=%ip"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span style={{ width: 160, textAlign: 'right' }}>{L.ipInfoDetailUrl}</span>
+                    <input
+                      className="eu-textbox flex-1"
+                      value={(config as { ipInfoDetailUrl?: string }).ipInfoDetailUrl ?? ''}
+                      onChange={(e) => saveConfig({ ipInfoDetailUrl: e.target.value })}
+                      placeholder="https://your.service/detail?ip=%ip"
+                    />
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td className="title">{L['export-config']}</td>
+                <td colSpan={3}>
+                  <LinkButton icon="tr-icon-download" onClick={() => openDialog('export-config')}>
+                    {lang.dialog.public['button-export']}
+                  </LinkButton>
+                  <span className="mx-2" />
+                  <LinkButton icon="tr-icon-upload" onClick={() => openDialog('import-config')}>
+                    {lang.dialog.public['button-import']}
+                  </LinkButton>
+                  <div style={{ color: '#666' }}>{L['export-config']}</div>
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -472,7 +521,7 @@ function LabelsManage() {
     <div className="dialog flex flex-col h-full">
       <table className="border border-collapse border-[#ccc]">
         <thead>
-          <tr className="bg-[#efefef]">
+          <tr className="bg-[var(--eu-grid-head-bottom)]">
             <th className="border border-[#ccc] px-1">{L.name}</th>
             <th className="border border-[#ccc] px-1">{L.description}</th>
             <th className="border border-[#ccc] px-1">{L.color}</th>

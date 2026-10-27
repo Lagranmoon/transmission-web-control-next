@@ -77,7 +77,7 @@ export function RootLayout() {
 
   return (
     <div
-      className="h-full w-full flex flex-col bg-[#eaf2ff]"
+      className="h-full w-full flex flex-col bg-[var(--eu-app-bg)]"
       onDragEnter={(e) => {
         e.preventDefault()
         dragCounter.current++
@@ -94,14 +94,14 @@ export function RootLayout() {
       <div className="flex-1 flex min-h-0">
         {/* west: 导航 */}
         <div className="flex min-h-0 bg-white" style={{ width: navWidth }}>
-          <div className="flex-1 min-w-0 border-y border-[#95b8e7]">
+          <div className="flex-1 min-w-0 border-y border-[var(--eu-border)]">
             <NavPanel />
           </div>
           <div className="eu-splitter-v" onMouseDown={startDrag('nav')} />
         </div>
         {/* center: 列表 + 详情 */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-white">
-          <div className="flex-1 min-h-0 border-y border-[#95b8e7]">
+          <div className="flex-1 min-h-0 border-y border-[var(--eu-border)]">
             <TorrentList />
           </div>
           {/* 详情面板（可折叠） */}
@@ -124,7 +124,7 @@ export function RootLayout() {
             </>
           ) : (
             <button
-              className="text-[11px] text-[#0e2d5f] bg-gradient-to-b from-[#eff5ff] to-[#e0ecff] border-t border-[#95b8e7] py-0.5 cursor-pointer hover:bg-[#eaf2ff]"
+              className="text-[11px] text-[var(--eu-title)] bg-gradient-to-b from-[var(--eu-header-top)] to-[var(--eu-header-bottom)] border-t border-[var(--eu-border)] py-0.5 cursor-pointer hover:bg-[var(--eu-hover)]"
               onClick={() => uiStore.set({ attributeExpanded: true })}
             >
               ▲ {lang.title.attribute}

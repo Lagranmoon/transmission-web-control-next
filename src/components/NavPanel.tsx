@@ -227,7 +227,7 @@ export function NavPanel() {
       </div>
       {/* 状态面板（底部，选中时展开显示） */}
       {ui.checkedIds.length > 0 && (
-        <div className="eu-panel !border-0 !border-t border-[#95b8e7]" style={{ height: 180 }}>
+        <div className="eu-panel !border-0 !border-t border-[var(--eu-border)]" style={{ height: 180 }}>
           <div className="eu-panel-header">{lang.title.status}</div>
           <div className="eu-panel-body overflow-auto text-[12px]">
             <div className="p-1">

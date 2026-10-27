@@ -1,5 +1,5 @@
 // 底部详情面板 — 复刻 torrent-attribute.html：左侧 Tabs（常规/服务器/文件/用户/设置）
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { DataGrid, type GridColumn } from './DataGrid'
 import { LinkButton, NumberSpinner, TriStateCheckbox, useMenu } from './ui'
 import { useLang } from '../i18n'
@@ -12,6 +12,7 @@ import { getTimeUnits } from '../i18n'
 import { STATUS, type FileStat, type Peer, type Torrent, type TorrentFile, type TrackerStat } from '../lib/types'
 import { ProgressBar } from '../lib/columns'
 import { rpc } from '../lib/rpc'
+import { geoEnabled, lookupFlag, lookupDetail, flagSrc } from '../lib/peers-geo'
 
 type FileRow = Record<string, unknown> & { index: number }
 type TrackerRow = Record<string, unknown>
@@ -280,7 +281,7 @@ function ServersTab({ torrent }: { torrent: Torrent }) {
         pageSize={30}
         emptyText="…"
       />
-      <div className="flex gap-1 p-1 border-t border-[#ddd] bg-[#f5f5f5]">
+      <div className="flex gap-1 p-1 border-t border-[var(--eu-line)] bg-[var(--eu-toolbar)]">
         <LinkButton icon="tr-icon-plus" title={lang.torrent.attribute.tip['button-tracker-add']} onClick={() => openDialog('torrent-attribute-add-tracker', { ids: [torrent.id] })} />
         <LinkButton
           icon="tr-icon-replace"
@@ -415,7 +416,7 @@ function FilesTab({ torrent }: { torrent: Torrent }) {
         onPageChange={setPage}
         emptyText="…"
       />
-      <div className="flex gap-1 p-1 border-t border-[#ddd] bg-[#f5f5f5] items-center">
+      <div className="flex gap-1 p-1 border-t border-[var(--eu-line)] bg-[var(--eu-toolbar)] items-center">
         <LinkButton icon="icon-allow" title={lang.torrent.attribute.tip['button-allow']} onClick={() => setFilesWanted(true)} />
         <LinkButton icon="icon-deny" title={lang.torrent.attribute.tip['button-deny']} onClick={() => setFilesWanted(false)} />
         <LinkButton
@@ -436,7 +437,7 @@ function FilesTab({ torrent }: { torrent: Torrent }) {
         />
         <span className="ml-2 text-gray-500">{lang.torrent.attribute.tip['button-filter']}：</span>
         <select
-          className="border border-[#95b8e7] rounded h-[22px]"
+          className="border border-[var(--eu-border)] rounded h-[22px]"
           value={filterTemplates.some((t) => t.value === filter) ? filter : ''}
           onChange={(e) => setFilter(e.target.value)}
         >
@@ -465,19 +466,47 @@ function PeersTab({ torrent }: { torrent: Torrent }) {
   const F = lang.torrent.attribute['peers-fields'] as Record<string, string>
   const S = lang.torrent.attribute.status as Record<string, string>
   const [page, setPage] = useState(1)
+  // IP 归属地/国旗（启用后异步补齐）
+  const [geo, setGeo] = useState<Record<string, { flag: string | null; detail: string | null }>>({})
+
+  useEffect(() => {
+    if (!geoEnabled()) return
+    let alive = true
+    void (async () => {
+      const next: Record<string, { flag: string | null; detail: string | null }> = {}
+      for (const p of torrent.peers || []) {
+        next[p.address] = { flag: await lookupFlag(p.address), detail: await lookupDetail(p.address) }
+      }
+      if (alive) setGeo(next)
+    })()
+    return () => {
+      alive = false
+    }
+  }, [torrent.peers])
 
   const rows: PeerRow[] = useMemo(() => {
-    return (torrent.peers || []).map((p: Peer) => ({
-      address: p.address,
-      port: p.port,
-      isUTP: S[String(p.isUTP)],
-      clientName: p.clientName,
-      flagStr: p.flagStr,
-      progress: p.progress,
-      rateToClient: p.rateToClient,
-      rateToPeer: p.rateToPeer,
-    }))
-  }, [torrent.peers, lang])
+    return (torrent.peers || []).map((p: Peer) => {
+      const g = geo[p.address]
+      const addr = (
+        <>
+          {g?.flag && (
+            <img src={flagSrc(g.flag)} alt={g.flag} title={g.detail || g.flag} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+          )}
+          {g ? (g.detail ? <span title={g.detail}>{p.address}</span> : p.address) : p.address}
+        </>
+      )
+      return {
+        address: addr,
+        port: p.port,
+        isUTP: S[String(p.isUTP)],
+        clientName: p.clientName,
+        flagStr: p.flagStr,
+        progress: p.progress,
+        rateToClient: p.rateToClient,
+        rateToPeer: p.rateToPeer,
+      }
+    })
+  }, [torrent.peers, lang, geo])
 
   const columns: GridColumn<PeerRow>[] = [
     { field: 'address', title: F.address, width: 160 },
@@ -630,7 +659,7 @@ function ConfigTab({ torrent }: { torrent: Torrent }) {
           </tr>
         </tbody>
       </table>
-      <div className="mt-auto flex items-center gap-2 p-1 border-t border-[#ddd]">
+      <div className="mt-auto flex items-center gap-2 p-1 border-t border-[var(--eu-line)]">
         <LinkButton
           icon="icon-ok"
           onClick={save}

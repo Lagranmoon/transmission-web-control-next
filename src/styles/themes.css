@@ -1,0 +1,275 @@
+/* 主题调色板 — 取自原项目 EasyUI 各主题 easyui.css 的关键色
+   通过 <html data-theme="..."> 切换；亮色主题内容区保持白底（与 EasyUI 一致） */
+
+:root,
+[data-theme='default'] {
+  --eu-border: #95b8e7;
+  --eu-header-top: #eff5ff;
+  --eu-header-bottom: #e0ecff;
+  --eu-title: #0e2d5f;
+  --eu-text: #444;
+  --eu-selected: #ffe48d;
+  --eu-selected-text: #000;
+  --eu-hover: #eaf2ff;
+  --eu-hover-border: #b7d2ff;
+  --eu-alt: #fafafa;
+  --eu-toolbar: #f0f0f0;
+  --eu-dialog-btn: #f4f4f4;
+  --eu-line: #dddddd;
+  --eu-menu-bg: #fafafa;
+  --eu-menu-border: #ddd;
+  --eu-app-bg: #eaf2ff;
+  --eu-grid-head-top: #f9f9f9;
+  --eu-grid-head-bottom: #efefef;
+  --eu-accent: #6b9cde;
+  --eu-scroll-1: #e0ecff;
+  --eu-scroll-2: #c8ddf5;
+}
+
+[data-theme='gray'] {
+  --eu-border: #d3d3d3;
+  --eu-header-top: #f8f8f8;
+  --eu-header-bottom: #eeeeee;
+  --eu-title: #444;
+  --eu-selected: #0092dc;
+  --eu-selected-text: #fff;
+  --eu-hover: #e2e2e2;
+  --eu-hover-border: #ccc;
+  --eu-toolbar: #f0f0f0;
+  --eu-app-bg: #f2f2f2;
+  --eu-menu-bg: #f3f3f3;
+  --eu-menu-border: #d3d3d3;
+  --eu-grid-head-top: #f8f8f8;
+  --eu-grid-head-bottom: #eeeeee;
+  --eu-scroll-1: #f0f0f0;
+  --eu-scroll-2: #d9d9d9;
+}
+
+[data-theme='metro'] {
+  --eu-border: #ddd;
+  --eu-header-top: #f5f5f5;
+  --eu-header-bottom: #ececec;
+  --eu-title: #444;
+  --eu-selected: #cce6ff;
+  --eu-hover: #e6e6e6;
+  --eu-hover-border: #ddd;
+  --eu-app-bg: #f2f2f2;
+  --eu-menu-bg: #ffffff;
+  --eu-grid-head-top: #f5f5f5;
+  --eu-grid-head-bottom: #ececec;
+  --eu-scroll-1: #eeeeee;
+  --eu-scroll-2: #d5d5d5;
+}
+
+[data-theme='material'] {
+  --eu-border: #eee;
+  --eu-header-top: #fafafa;
+  --eu-header-bottom: #f0f0f0;
+  --eu-title: #444;
+  --eu-selected: #00bbee;
+  --eu-selected-text: #fff;
+  --eu-hover: #eee;
+  --eu-hover-border: #ccc;
+  --eu-toolbar: #f5f5f5;
+  --eu-app-bg: #f2f2f2;
+  --eu-menu-bg: #fff;
+  --eu-menu-border: #eee;
+  --eu-grid-head-top: #fafafa;
+  --eu-grid-head-bottom: #f0f0f0;
+  --eu-accent: #00bbee;
+  --eu-scroll-1: #eeeeee;
+  --eu-scroll-2: #d5d5d5;
+}
+
+[data-theme='bootstrap'] {
+  --eu-border: #d4d4d4;
+  --eu-header-top: #ffffff;
+  --eu-header-bottom: #f2f2f2;
+  --eu-title: #333;
+  --eu-selected: #0081c2;
+  --eu-selected-text: #fff;
+  --eu-hover: #e6e6e6;
+  --eu-hover-border: #ddd;
+  --eu-toolbar: #f5f5f5;
+  --eu-app-bg: #f2f2f2;
+  --eu-menu-bg: #fff;
+  --eu-menu-border: #e6e6e6;
+  --eu-grid-head-top: #ffffff;
+  --eu-grid-head-bottom: #f2f2f2;
+  --eu-accent: #0081c2;
+  --eu-scroll-1: #f0f0f0;
+  --eu-scroll-2: #d9d9d9;
+}
+
+[data-theme='black'] {
+  --eu-border: #000;
+  --eu-header-top: #454545;
+  --eu-header-bottom: #383838;
+  --eu-title: #fff;
+  --eu-text: #eee;
+  --eu-selected: #0052a3;
+  --eu-selected-text: #fff;
+  --eu-hover: #777;
+  --eu-hover-border: #555;
+  --eu-alt: #3f3f3f;
+  --eu-toolbar: #383838;
+  --eu-dialog-btn: #454545;
+  --eu-line: #555;
+  --eu-menu-bg: #666;
+  --eu-menu-border: #444;
+  --eu-app-bg: #2e2e2e;
+  --eu-grid-head-top: #454545;
+  --eu-grid-head-bottom: #383838;
+  --eu-accent: #0052a3;
+  --eu-scroll-1: #555;
+  --eu-scroll-2: #3a3a3a;
+}
+
+[data-theme='metro-blue'] {
+  --eu-border: #c3d9e0;
+  --eu-header-top: #f5f5f5;
+  --eu-header-bottom: #ececec;
+  --eu-title: #0e2d5f;
+  --eu-selected: #6caef5;
+  --eu-hover: #9cc8f7;
+  --eu-hover-border: #9cc8f7;
+  --eu-app-bg: #eef4fb;
+  --eu-menu-border: #c3d9e0;
+  --eu-accent: #6caef5;
+  --eu-scroll-1: #dceaf8;
+  --eu-scroll-2: #b8d7f2;
+}
+
+[data-theme='metro-gray'] {
+  --eu-border: #abafb8;
+  --eu-header-top: #f5f5f5;
+  --eu-header-bottom: #ececec;
+  --eu-title: #444;
+  --eu-selected: #84909c;
+  --eu-selected-text: #fff;
+  --eu-hover: #e6e6e6;
+  --eu-hover-border: #e6e6e6;
+  --eu-app-bg: #f2f2f2;
+  --eu-menu-border: #abafb8;
+  --eu-accent: #84909c;
+}
+
+[data-theme='metro-green'] {
+  --eu-border: #b1c242;
+  --eu-header-top: #f5f5f5;
+  --eu-header-bottom: #ececec;
+  --eu-title: #444;
+  --eu-selected: #c8d47b;
+  --eu-hover: #e0f892;
+  --eu-hover-border: #e0f892;
+  --eu-app-bg: #f2f7e6;
+  --eu-menu-border: #b1c242;
+  --eu-accent: #a3b730;
+}
+
+[data-theme='metro-orange'] {
+  --eu-border: #d4a375;
+  --eu-header-top: #f5f5f5;
+  --eu-header-bottom: #ececec;
+  --eu-title: #444;
+  --eu-selected: #f7cc8f;
+  --eu-hover: #fff7d6;
+  --eu-hover-border: #fff7d6;
+  --eu-app-bg: #fdf5eb;
+  --eu-menu-border: #d4a375;
+  --eu-accent: #d4a375;
+}
+
+[data-theme='metro-red'] {
+  --eu-border: #f6c1bc;
+  --eu-header-top: #f5f5f5;
+  --eu-header-bottom: #ececec;
+  --eu-title: #444;
+  --eu-selected: #f09090;
+  --eu-hover: #fff0e7;
+  --eu-hover-border: #fff0e7;
+  --eu-app-bg: #fdf0ef;
+  --eu-menu-border: #f6c1bc;
+  --eu-accent: #e57373;
+}
+
+[data-theme='ui-cupertino'] {
+  --eu-border: #aed0ea;
+  --eu-header-top: #eff5ff;
+  --eu-header-bottom: #d7ebf9;
+  --eu-title: #0e2d5f;
+  --eu-selected: #3baae3;
+  --eu-selected-text: #fff;
+  --eu-hover: #e4f1fb;
+  --eu-hover-border: #aed0ea;
+  --eu-app-bg: #e9f3fb;
+  --eu-menu-border: #aed0ea;
+  --eu-accent: #3baae3;
+  --eu-scroll-1: #d7ebf9;
+  --eu-scroll-2: #b3d6ee;
+}
+
+[data-theme='ui-dark-hive'] {
+  --eu-border: #444;
+  --eu-header-top: #626262;
+  --eu-header-bottom: #222222;
+  --eu-title: #fff;
+  --eu-text: #eee;
+  --eu-selected: #0972a5;
+  --eu-selected-text: #fff;
+  --eu-hover: #003147;
+  --eu-hover-border: #0b93d5;
+  --eu-alt: #3a3a3a;
+  --eu-toolbar: #222;
+  --eu-dialog-btn: #626262;
+  --eu-line: #555;
+  --eu-menu-bg: #000;
+  --eu-menu-border: #444;
+  --eu-app-bg: #121212;
+  --eu-grid-head-top: #626262;
+  --eu-grid-head-bottom: #222222;
+  --eu-accent: #0b93d5;
+  --eu-scroll-1: #555;
+  --eu-scroll-2: #333;
+}
+
+[data-theme='ui-pepper-grinder'] {
+  --eu-border: #cbc7bd;
+  --eu-header-top: #f8f7f6;
+  --eu-header-bottom: #e5e1d5;
+  --eu-title: #665949;
+  --eu-selected: #b83400;
+  --eu-selected-text: #fff;
+  --eu-hover: #e6e2d8;
+  --eu-hover-border: #cbc7bd;
+  --eu-toolbar: #f0ece4;
+  --eu-app-bg: #f2efe9;
+  --eu-menu-border: #cbc7bd;
+  --eu-grid-head-top: #f8f7f6;
+  --eu-grid-head-bottom: #e5e1d5;
+  --eu-accent: #b83400;
+  --eu-scroll-1: #e5e1d5;
+  --eu-scroll-2: #d0cabb;
+}
+
+[data-theme='ui-sunny'] {
+  --eu-border: #a45b13;
+  --eu-header-top: #a69e8d;
+  --eu-header-bottom: #817865;
+  --eu-title: #fff;
+  --eu-selected: #ffffff;
+  --eu-hover: #ffdd57;
+  --eu-hover-border: #a45b13;
+  --eu-alt: #fdf8e8;
+  --eu-toolbar: #efe6cf;
+  --eu-dialog-btn: #f5ecd7;
+  --eu-line: #d9c48f;
+  --eu-app-bg: #efe4d0;
+  --eu-menu-bg: #faf6e8;
+  --eu-menu-border: #a45b13;
+  --eu-grid-head-top: #efe6cf;
+  --eu-grid-head-bottom: #e3d5b3;
+  --eu-accent: #a45b13;
+  --eu-scroll-1: #efe4d0;
+  --eu-scroll-2: #dbc79f;
+}

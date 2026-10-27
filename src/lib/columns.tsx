@@ -4,9 +4,15 @@ import type { GridColumn } from '../components/DataGrid'
 import type { Lang } from '../i18n'
 import type { Torrent } from './types'
 import { formatLongTime, formatSize, getTotalTime, getGrayLevel } from './format'
-import { getTimeUnits } from '../i18n'
+import { getTimeUnits, getLangPack, resolveLang } from '../i18n'
+import { openDialog } from './ui'
 import { STATUS } from './types'
 import { configStore } from './config'
+
+/** 语言在页面生命周期内固定（切换语言会刷新），模块级取一次即可 */
+const SET_LABELS_TIP =
+  (getLangPack(resolveLang()).dialog as Record<string, { title?: string }>)['torrent-setLabels']?.title ??
+  '设置用户标签'
 
 type Row = Torrent & Record<string, unknown>
 
@@ -84,14 +90,14 @@ export function NameCell({ torrent, lang }: { torrent: Torrent; lang: Lang }) {
   )
 }
 
-/** 标签列（formetTorrentLabels 移植，不含内联设置按钮） */
+/** 标签列（formetTorrentLabels 移植，含内联快速设置按钮） */
 export function LabelsCell({ torrent }: { torrent: Torrent }) {
   const labels = configStore.get().labels
   const ids = torrent.labels
-  if (!ids || !ids.length) return null
+  const navLabels = configStore.get().nav.labels
   return (
     <>
-      {ids.map((id) => {
+      {(ids || []).map((id) => {
         const item = labels[id]
         if (!item) return null
         const gray = getGrayLevel(item.color)
@@ -101,6 +107,18 @@ export function LabelsCell({ torrent }: { torrent: Torrent }) {
           </span>
         )
       })}
+      {navLabels && (
+        <button
+          className="user-label-set-btn"
+          title={SET_LABELS_TIP}
+          onClick={(e) => {
+            e.stopPropagation()
+            openDialog('torrent-setLabels', { hashs: [torrent.hashString] })
+          }}
+        >
+          <i className="iconfont tr-icon-labels" />
+        </button>
+      )}
     </>
   )
 }

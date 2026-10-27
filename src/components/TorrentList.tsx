@@ -167,6 +167,21 @@ export function TorrentList() {
           copyToClipboard(links)
           showToast(lang.menus.copyMagnetLink)
         } },
+        ...(config.nav.labels
+          ? [
+              '-' as const,
+              {
+                id: 'setLabels',
+                text: (lang.menus as Record<string, unknown>).setLabels as string,
+                icon: 'tr-icon-labels',
+                disabled: ids.length === 0,
+                onClick: () =>
+                  openDialog('torrent-setLabels', {
+                    hashs: ids.map((i) => snap.all[i]?.hashString).filter(Boolean),
+                  }),
+              },
+            ]
+          : []),
       ],
       e.clientX,
       e.clientY,

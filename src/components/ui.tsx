@@ -310,7 +310,7 @@ export function Pagination({
       {btn('»', cur >= pages, pages, '末页')}
       {pageList && onPageSizeChange && (
         <select
-          className="border border-[#95b8e7] rounded bg-white px-0.5 h-[20px]"
+          className="border border-[var(--eu-border)] rounded bg-white px-0.5 h-[20px]"
           value={pageSize}
           onChange={(e) => onPageSizeChange(Number(e.target.value))}
         >
@@ -359,13 +359,13 @@ export function NumberSpinner({
       />
       <span className="inline-flex flex-col" style={{ width: 16 }}>
         <span
-          className="flex-1 text-[7px] leading-[8px] border border-[#95b8e7] rounded-tr cursor-pointer select-none text-center"
+          className="flex-1 text-[7px] leading-[8px] border border-[var(--eu-border)] rounded-tr cursor-pointer select-none text-center"
           onClick={() => !disabled && onChange(clamp(value + 1))}
         >
           ▲
         </span>
         <span
-          className="flex-1 text-[7px] leading-[8px] border border-t-0 border-[#95b8e7] rounded-br cursor-pointer select-none text-center"
+          className="flex-1 text-[7px] leading-[8px] border border-t-0 border-[var(--eu-border)] rounded-br cursor-pointer select-none text-center"
           onClick={() => !disabled && onChange(clamp(value - 1))}
         >
           ▼
@@ -425,14 +425,14 @@ export function SwitchButton({
       title={checked ? onText : offText}
     >
       <span
-        className="inline-flex rounded-full overflow-hidden border border-[#95b8e7]"
-        style={{ width: 56, height: 20, background: checked ? '#fff' : '#eef2f8' }}
+        className="inline-flex rounded-full overflow-hidden border border-[var(--eu-border)]"
+        style={{ width: 56, height: 20, background: checked ? '#fff' : 'var(--eu-grid-head-bottom)' }}
       >
         <span
           className="flex items-center justify-center h-full transition-all"
           style={{
             width: '50%',
-            background: checked ? '#68b0f0' : '#c9c9c9',
+            background: checked ? 'var(--eu-accent)' : '#c9c9c9',
             color: '#fff',
             marginLeft: checked ? '50%' : '0',
           }}
@@ -500,23 +500,23 @@ export function ComboBox({
       </div>
       {open && (
         <div
-          className="absolute z-[9998] bg-white border border-[#95b8e7] rounded-b shadow-md max-h-[260px] overflow-auto"
+          className="absolute z-[9998] bg-white border border-[var(--eu-border)] rounded-b shadow-md max-h-[260px] overflow-auto"
           style={{ top: '100%', left: 0, right: 0, minWidth: width }}
         >
           {editable && !visible.some((o) => o.value === value) && value && filter === '' && (
-            <div className="px-2 py-1 cursor-pointer hover:bg-[#eaf2ff]" onClick={() => { onChange(value); setOpen(false) }}>
+            <div className="px-2 py-1 cursor-pointer hover:bg-[var(--eu-hover)]" onClick={() => { onChange(value); setOpen(false) }}>
               {value}
             </div>
           )}
           {visible.map((o) => {
             const groupEl = o.group && o.group !== lastGroup ? (
-              <div className="px-2 py-0.5 text-gray-500 bg-[#f5f5f5]">{(lastGroup = o.group)}</div>
+              <div className="px-2 py-0.5 text-gray-500 bg-[var(--eu-toolbar)]">{(lastGroup = o.group)}</div>
             ) : null
             return (
               <div key={o.value}>
                 {groupEl}
                 <div
-                  className={`px-2 py-1 cursor-pointer hover:bg-[#eaf2ff] ${o.value === value ? 'bg-[#ffe48d]' : ''}`}
+                  className={`px-2 py-1 cursor-pointer hover:bg-[var(--eu-hover)] ${o.value === value ? 'bg-[var(--eu-selected)]' : ''}`}
                   onClick={() => {
                     onChange(o.value)
                     setOpen(false)
@@ -554,7 +554,7 @@ export function SearchBox({
         }}
       />
       <span
-        className="inline-flex items-center justify-center border border-l-0 border-[#95b8e7] rounded rounded-l-none px-1 cursor-pointer hover:bg-[#eaf2ff]"
+        className="inline-flex items-center justify-center border border-l-0 border-[var(--eu-border)] rounded rounded-l-none px-1 cursor-pointer hover:bg-[var(--eu-hover)]"
         style={{ width: 20 }}
         onClick={(e) => {
           const input = (e.currentTarget.previousSibling as HTMLInputElement)

@@ -25,6 +25,10 @@ export interface SystemConfig {
   hideSubfolders: boolean
   simpleCheckMode: boolean
   ignoreVersion: string[]
+  // IP 归属地（原 system.config ipInfo*）
+  ipInfoToken?: string
+  ipInfoFlagUrl?: string
+  ipInfoDetailUrl?: string
 }
 
 const DEFAULT_CONFIG: SystemConfig = {

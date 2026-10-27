@@ -75,6 +75,8 @@ export function DataGrid<T extends Record<string, unknown>>({
   const visibleCols = columns.filter((c) => !c.hidden)
   const [headerMenu, setHeaderMenu] = useState<{ x: number; y: number } | null>(null)
   const [resizeW, setResizeW] = useState<{ field: string; w: number } | null>(null)
+  const [dragOver, setDragOver] = useState<string | null>(null)
+  const dragField = useRef<string | null>(null)
   const lastCheckedRef = useRef<number>(-1)
 
   const keyOf = (row: T) => row[keyField] as string | number
@@ -138,6 +140,20 @@ export function DataGrid<T extends Record<string, unknown>>({
     window.addEventListener('mouseup', up)
   }
 
+  // 列拖动排序：将 dragField 移到目标列之前
+  const dropColumn = (targetField: string) => {
+    const from = dragField.current
+    dragField.current = null
+    setDragOver(null)
+    if (!from || from === targetField) return
+    const order = columns.map((c) => c.field)
+    const fromIdx = order.indexOf(from)
+    const toIdx = order.indexOf(targetField)
+    if (fromIdx === -1 || toIdx === -1) return
+    order.splice(toIdx, 0, order.splice(fromIdx, 1)[0])
+    onColumnsChange?.(order.map((f) => columns.find((c) => c.field === f)!))
+  }
+
   const colWidth = (field: string, fallback: number) =>
     resizeW?.field === field ? resizeW.w : fallback
 
@@ -163,8 +179,33 @@ export function DataGrid<T extends Record<string, unknown>>({
               )}
               {visibleCols.map((col) => {
                 const w = colWidth(col.field, col.width ?? 80)
+                const draggable = col.allowCustom !== false && !col.checkbox
                 return (
-                  <th key={col.field} className="datagrid-head-cell" style={{ width: w }}>
+                  <th
+                    key={col.field}
+                    className={`datagrid-head-cell ${dragOver === col.field ? 'drop-over-before' : ''}`}
+                    style={{ width: w }}
+                    draggable={draggable}
+                    onDragStart={(e) => {
+                      dragField.current = col.field
+                      e.dataTransfer.effectAllowed = 'move'
+                    }}
+                    onDragOver={(e) => {
+                      if (!draggable || !dragField.current || dragField.current === col.field) return
+                      e.preventDefault()
+                      e.dataTransfer.dropEffect = 'move'
+                      setDragOver(col.field)
+                    }}
+                    onDragLeave={() => setDragOver((f) => (f === col.field ? null : f))}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      dropColumn(col.field)
+                    }}
+                    onDragEnd={() => {
+                      dragField.current = null
+                      setDragOver(null)
+                    }}
+                  >
                     <div
                       className={`datagrid-cell ${col.sortable ? 'sortable' : ''}`}
                       style={{ textAlign: col.align }}
