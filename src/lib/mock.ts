@@ -1,5 +1,8 @@
 // Mock 服务器状态 — 模拟 Transmission 守护进程，用于 UI 开发/演示（VITE_MOCK=1）
+// VITE_MOCK_COUNT 可指定种子数量（性能测试用，如 VITE_MOCK_COUNT=2000）
 import type { SessionStats, Torrent, TrackerStat } from './types'
+
+const MOCK_COUNT = Number(import.meta.env.VITE_MOCK_COUNT || 12)
 
 function tracker(announce: string, state = 3): TrackerStat {
   const host = announce.replace(/^https?:\/\//, '').split('/')[0]
@@ -130,7 +133,7 @@ function makeTorrent(i: number): Torrent {
   }
 }
 
-let torrents: Torrent[] = Array.from({ length: 12 }, (_, i) => makeTorrent(i))
+let torrents: Torrent[] = Array.from({ length: MOCK_COUNT }, (_, i) => makeTorrent(i))
 let session = {
   version: '4.0.6',
   'rpc-version': 17,

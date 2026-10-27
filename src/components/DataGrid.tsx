@@ -1,7 +1,8 @@
 // 通用数据表格 — 复刻 EasyUI datagrid 的核心交互：
 // 复选列 / 行号 / 排序 / 列宽拖动 / 表头右键显示隐藏列 / 斑马纹 / 分页 / shift 连选
 // 结构：单表格 + 粘性表头（thead sticky），表头与表体列宽天然对齐
-import { useMemo, useRef, useState, type ReactNode } from 'react'
+// 性能：行组件 React.memo + 稳定行引用（数据层保持对象不变），轮询时只重渲染有变化的行
+import { memo, useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Pagination } from './ui'
 
 export interface GridColumn<T = Record<string, unknown>> {
@@ -72,12 +73,24 @@ export function DataGrid<T extends Record<string, unknown>>({
   emptyText?: string
   maxHeight?: number
 }) {
-  const visibleCols = columns.filter((c) => !c.hidden)
+  const visibleCols = useMemo(() => columns.filter((c) => !c.hidden), [columns])
   const [headerMenu, setHeaderMenu] = useState<{ x: number; y: number } | null>(null)
   const [resizeW, setResizeW] = useState<{ field: string; w: number } | null>(null)
   const [dragOver, setDragOver] = useState<string | null>(null)
   const dragField = useRef<string | null>(null)
   const lastCheckedRef = useRef<number>(-1)
+
+  // 通过 ref 转发最新的回调，保证传给 memo 行组件的函数引用稳定
+  const handlersRef = useRef({ onSelect, onCheck, onRowContextMenu, toggleRowCheck: ((_i: number, _r: T, _e: React.MouseEvent) => {}) as (index: number, row: T, e: React.MouseEvent) => void })
+  const stableSelect = useCallback((row: T, key: string | number) => {
+    handlersRef.current.onSelect?.(row, key)
+  }, [])
+  const stableCheck = useCallback((index: number, row: T, e: React.MouseEvent) => {
+    handlersRef.current.toggleRowCheck(index, row, e)
+  }, [])
+  const stableContext = useCallback((e: React.MouseEvent, row: T, index: number) => {
+    handlersRef.current.onRowContextMenu?.(e, row, index)
+  }, [])
 
   const keyOf = (row: T) => row[keyField] as string | number
   const checked = checkedKeys ?? new Set<string | number>()
@@ -89,8 +102,7 @@ export function DataGrid<T extends Record<string, unknown>>({
   }, [rows, pagination, page, pageSize])
 
   // shift 连选
-  const toggleRowCheck = (index: number, row: T, e: React.MouseEvent) => {
-    const next = new Set(checked)
+  const toggleRowCheck = (index: number, row: T, e: React.MouseEvent) => {    const next = new Set(checked)
     const key = keyOf(row)
     const willCheck = !next.has(key)
     if (e.shiftKey && lastCheckedRef.current >= 0 && lastCheckedRef.current !== index) {
@@ -108,6 +120,8 @@ export function DataGrid<T extends Record<string, unknown>>({
     lastCheckedRef.current = index
     onCheck?.(next)
   }
+  // 每次渲染刷新回调引用（memo 行组件通过 stable 包装调用最新实现）
+  handlersRef.current = { onSelect, onCheck, onRowContextMenu, toggleRowCheck }
 
   const checkAllPage = (want: boolean) => {
     const next = new Set(checked)
@@ -248,49 +262,22 @@ export function DataGrid<T extends Record<string, unknown>>({
                 </td>
               </tr>
             )}
-            {pageRows.map((row, i) => {
-              const key = keyOf(row)
-              const rowIndex = (pagination ? (page - 1) * pageSize : 0) + i
-              return (
-                <tr
-                  key={String(key)}
-                  className={`eu-datagrid-row ${i % 2 === 1 ? 'alt' : ''} ${selectedKey === key ? 'selected' : ''}`}
-                  onClick={() => onSelect?.(row, key)}
-                  onContextMenu={(e) => onRowContextMenu?.(e, row, rowIndex)}
-                >
-                  {rownumbers && (
-                    <td>
-                      <div className="datagrid-cell" style={{ textAlign: 'center', color: '#444' }}>
-                        {rowIndex + 1}
-                      </div>
-                    </td>
-                  )}
-                  {visibleCols.map((col) => (
-                    <td key={col.field}>
-                      <div className="datagrid-cell" style={{ textAlign: col.align }}>
-                        {col.checkbox ? (
-                          <input
-                            type="checkbox"
-                            checked={checked.has(key)}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              toggleRowCheck(i, row, e)
-                            }}
-                            onChange={() => {
-                              /* 状态由 click 处理 */
-                            }}
-                          />
-                        ) : col.formatter ? (
-                          col.formatter(row[col.field], row)
-                        ) : (
-                          String(row[col.field] ?? '')
-                        )}
-                      </div>
-                    </td>
-                  ))}
-                </tr>
-              )
-            })}
+            {pageRows.map((row, i) => (
+              <GridRow<T>
+                key={String(keyOf(row))}
+                row={row}
+                rowKey={keyOf(row)}
+                rowIndex={(pagination ? (page - 1) * pageSize : 0) + i}
+                displayIndex={i}
+                cols={visibleCols}
+                rownumbers={rownumbers}
+                checked={checked.has(keyOf(row))}
+                selected={selectedKey === keyOf(row)}
+                onSelect={stableSelect}
+                onToggleCheck={stableCheck}
+                onContext={stableContext}
+              />
+            ))}
           </tbody>
         </table>
       </div>
@@ -336,3 +323,77 @@ export function DataGrid<T extends Record<string, unknown>>({
     </div>
   )
 }
+
+/** 记忆化行组件：row 引用稳定时跳过重渲染（轮询只更新有活动的种子） */
+interface GridRowProps<T extends Record<string, unknown>> {
+  row: T
+  rowKey: string | number
+  rowIndex: number
+  displayIndex: number
+  cols: GridColumn<T>[]
+  rownumbers: boolean
+  checked: boolean
+  selected: boolean
+  onSelect: (row: T, key: string | number) => void
+  onToggleCheck: (index: number, row: T, e: React.MouseEvent) => void
+  onContext: (e: React.MouseEvent, row: T, index: number) => void
+}
+
+function GridRowImpl<T extends Record<string, unknown>>({
+  row,
+  rowKey,
+  rowIndex,
+  displayIndex,
+  cols,
+  rownumbers,
+  checked,
+  selected,
+  onSelect,
+  onToggleCheck,
+  onContext,
+}: GridRowProps<T>) {
+  return (
+    <tr
+      className={`eu-datagrid-row ${displayIndex % 2 === 1 ? 'alt' : ''} ${selected ? 'selected' : ''}`}
+      onClick={() => onSelect(row, rowKey)}
+      onContextMenu={(e) => onContext(e, row, rowIndex)}
+    >
+      {rownumbers && (
+        <td>
+          <div className="datagrid-cell" style={{ textAlign: 'center', color: '#444' }}>
+            {rowIndex + 1}
+          </div>
+        </td>
+      )}
+      {cols.map((col) => (
+        <td key={col.field}>
+          <div className="datagrid-cell" style={{ textAlign: col.align }}>
+            {col.checkbox ? (
+              <input
+                type="checkbox"
+                checked={checked}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onToggleCheck(rowIndex, row, e)
+                }}
+                onChange={() => {
+                  /* 状态由 click 处理 */
+                }}
+              />
+            ) : col.formatter ? (
+              col.formatter(row[col.field], row)
+            ) : (
+              String(row[col.field] ?? '')
+            )}
+          </div>
+        </td>
+      ))}
+    </tr>
+  )
+}
+
+interface GridRowType {
+  <T extends Record<string, unknown>>(props: GridRowProps<T> & { key?: string }): React.ReactElement
+}
+
+const GridRow = memo(GridRowImpl) as unknown as GridRowType

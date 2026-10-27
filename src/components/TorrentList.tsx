@@ -95,10 +95,11 @@ export function TorrentList() {
     }
   }, [snap, ui.currentNodeId, config.hideSubfolders])
 
-  // 派生行数据（补充 completeSize 等展示字段）
+  // 派生行数据：在快照对象上补充 completeSize 并复用原引用，
+  // 配合 DataGrid 行级 memo，轮询时仅重渲染有变化的种子
   const rows = useMemo<Row[]>(() => {
     const list = source.map((t) => {
-      const row = { ...t } as Row
+      const row = t as Row
       row.completeSize = Math.max(0, t.totalSize - t.leftUntilDone)
       return row
     })

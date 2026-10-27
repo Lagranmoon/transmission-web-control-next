@@ -173,6 +173,8 @@ function Toolbar() {
 
   const changeStatus = (method: string) =>
     withChecked((ids) => {
+      // 慢 API 下防止连点堆叠请求
+      if (mutation.isPending) return
       mutation.mutate({ method, args: { ids } }, { onSuccess: () => uiStore.set({ checkedIds: [] }) })
     })
 

@@ -418,16 +418,15 @@ export function ChangeDownloadDirDialog({ dialogId, ids }: { dialogId: string; i
       setTimeout(() => setError(''), 2000)
       return
     }
-    let done = 0
-    for (const id of ids) {
-      const t = snap.all[id]
-      if (!t || t.downloadDir === dir) continue
-      setProgress(`-> ${t.name} [${done + 1}/${ids.length}]`)
-      await rpc('torrent-set-location', { ids: [id], location: dir, move: moveData })
-      done++
+    // torrent-set-location 原生支持 ids 数组：一次请求批量迁移，
+    // 避免慢 API 下逐条串行导致的长时间等待
+    const moveIds = ids.filter((id) => snap.all[id] && snap.all[id].downloadDir !== dir)
+    setProgress(`-> ${moveIds.length}`)
+    if (moveIds.length) {
+      await rpc('torrent-set-location', { ids: moveIds, location: dir, move: moveData })
     }
-    if (recheck && ids.length) {
-      await rpc('torrent-verify', { ids })
+    if (recheck && moveIds.length) {
+      await rpc('torrent-verify', { ids: moveIds })
     }
     mutation.reset()
     void mutation.mutate({ method: 'session-stats' })
@@ -640,14 +639,25 @@ export function ReplaceTrackerDialog({ dialogId }: { dialogId: string }) {
     }
     if (!window.confirm(lang.public['text-confirm'])) return
     setBusy(true)
+    // 与原 searchAndReplaceTrackers 一致：按 tracker id 分组，
+    // 每个 tracker 只发一次批量请求（ids 为该 tracker 下所有命中的种子）
+    const grouped = new Map<number, number[]>()
     let count = 0
     for (const t of Object.values(snap.all)) {
       for (const ts of t.trackerStats || []) {
         if (ts.announce === oldUrl) {
-          await rpc('torrent-set', { ids: [t.id], trackerReplace: [ts.id, newUrl] })
+          const list = grouped.get(ts.id) ?? []
+          list.push(t.id)
+          grouped.set(ts.id, list)
           count++
         }
       }
+    }
+    let done = 0
+    for (const [trackerId, torrentIds] of grouped) {
+      done++
+      setMessage(`-> [${done}/${grouped.size}]`)
+      await rpc('torrent-set', { ids: torrentIds, trackerReplace: [trackerId, newUrl] })
     }
     setBusy(false)
     if (count === 0) {

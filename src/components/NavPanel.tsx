@@ -234,11 +234,14 @@ export function NavPanel() {
               {lang.system.status.checked.replace('%n', String(ui.checkedIds.length))}
             </div>
             <ol className="list-decimal ml-6">
-              {ui.checkedIds.map((id) => (
+              {ui.checkedIds.slice(0, 100).map((id) => (
                 <li key={id} className="truncate px-1" title={snap.all[id]?.name}>
                   {snap.all[id]?.name ?? id}
                 </li>
               ))}
+              {ui.checkedIds.length > 100 && (
+                <li className="text-[var(--eu-text)] opacity-60">… +{ui.checkedIds.length - 100}</li>
+              )}
             </ol>
             <button
               className="user-label-set-btn absolute"

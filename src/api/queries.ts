@@ -89,7 +89,8 @@ export function useFreeSpace(path: string | undefined) {
   })
 }
 
-/** 统一变更操作：完成后触发列表刷新 */
+/** 统一变更操作：完成后触发列表刷新
+ *  session-get 是全量配置拉取（慢 API 下开销大），仅在真正改了会话参数时才刷新 */
 export function useRpcMutation() {
   const qc = useQueryClient()
   return useMutation({
@@ -103,10 +104,12 @@ export function useRpcMutation() {
       const result = await rpc<{ result?: string } & Record<string, unknown>>(method, args)
       return result
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       void qc.invalidateQueries({ queryKey: queryKeys.torrents })
       void qc.invalidateQueries({ queryKey: queryKeys.stats })
-      void qc.invalidateQueries({ queryKey: queryKeys.session })
+      if (variables.method === 'session-set') {
+        void qc.invalidateQueries({ queryKey: queryKeys.session })
+      }
     },
   })
 }
