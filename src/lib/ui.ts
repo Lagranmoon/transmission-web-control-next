@@ -6,6 +6,12 @@ export interface DialogSpec {
   props?: Record<string, unknown>
 }
 
+/** toast 条目（多条堆叠，各自独立计时） */
+export interface ToastItem {
+  id: number
+  text: string
+}
+
 export interface UiState {
   /** 当前选中的种子（单选，用于详情面板） */
   currentTorrentId: number
@@ -24,8 +30,8 @@ export interface UiState {
   attributeHeight: number
   /** 已打开对话框（栈） */
   dialogs: DialogSpec[]
-  /** toast 提示 */
-  toast: string | null
+  /** toast 提示（多条堆叠，由 RootLayout 的 ToastHost 渲染） */
+  toasts: ToastItem[]
 }
 
 export const uiStore = createStore<UiState>({
@@ -38,7 +44,7 @@ export const uiStore = createStore<UiState>({
   navWidth: 288,
   attributeHeight: 260,
   dialogs: [],
-  toast: null,
+  toasts: [],
 })
 
 export function useUi() {
@@ -56,9 +62,40 @@ export function closeDialog(id?: string) {
   uiStore.set({ dialogs: id ? dialogs.filter((d) => d.id !== id) : dialogs.slice(0, -1) })
 }
 
-let toastTimer: ReturnType<typeof setTimeout> | null = null
+/* ---------------- toast（视口顶部居中浮层，多条堆叠） ---------------- */
+let toastSeq = 0
+const toastTimers = new Map<number, ReturnType<typeof setTimeout>>()
+
+/** 接口与原版一致：showToast(text, ms)；内部改为多条堆叠、各自到期自动移除 */
 export function showToast(text: string, ms = 2500) {
-  uiStore.set({ toast: text })
-  if (toastTimer) clearTimeout(toastTimer)
-  toastTimer = setTimeout(() => uiStore.set({ toast: null }), ms)
+  const id = ++toastSeq
+  const { toasts } = uiStore.get()
+  uiStore.set({ toasts: [...toasts, { id, text }] })
+  const timer = setTimeout(() => {
+    toastTimers.delete(id)
+    uiStore.set({ toasts: uiStore.get().toasts.filter((t) => t.id !== id) })
+  }, ms)
+  toastTimers.set(id, timer)
+}
+
+/* ---------------- 批量操作进度浮层（右下角轻量提示） ---------------- */
+interface ProgressState {
+  /** 显示中的文案；空串表示无任务 */
+  text: string
+}
+
+export const progressStore = createStore<ProgressState>({ text: '' })
+
+/** 显示批量进度文案（如「正在处理 N 个种子…」） */
+export function showProgress(text: string) {
+  progressStore.set({ text })
+}
+
+/** 清除批量进度浮层 */
+export function hideProgress() {
+  progressStore.set({ text: '' })
+}
+
+export function useProgress() {
+  return useStore(progressStore)
 }

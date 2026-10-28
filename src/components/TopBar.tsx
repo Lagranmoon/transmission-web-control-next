@@ -42,7 +42,6 @@ export function TopBar() {
   const config = useConfig()
   const session = useSession()
   const stats = useStats()
-  const ui = useUi()
   const version = session.data?.version
 
   return (
@@ -84,6 +83,8 @@ export function TopBar() {
         </div>
       </div>
       <Toolbar />
+      {/* 断线提示条（服务器不可达时出现在工具栏下方） */}
+      <ConnectionBanner />
       {/* 底部状态栏 */}
       <div
         className="flex items-center px-2 gap-2 bg-[var(--eu-toolbar)] border-t border-[var(--eu-border)]"
@@ -114,8 +115,26 @@ export function TopBar() {
         <span className="ml-auto text-[var(--eu-text)]">
           {version ? `Transmission ${lang.statusbar.version}${version}, RPC: ${session.data?.['rpc-version']}, WEB Control: 1.6.1-next` : ''}
         </span>
-        {ui.toast && <span className="eu-toast" style={{ position: 'static', transform: 'none' }}>{ui.toast}</span>}
       </div>
+    </div>
+  )
+}
+
+/**
+ * 断线提示条：stats / torrents 两个轮询查询同时出错时认定服务器不可达，
+ * 在工具栏下方显示红黄色提示；查询成功（重试后恢复）即自动消失。
+ * 独立成叶子组件避免整块 TopBar 订阅种子轮询；不新增轮询，仅订阅现有查询缓存状态。
+ */
+function ConnectionBanner() {
+  const { lang } = useLang()
+  const stats = useStats()
+  const torrents = useTorrents()
+  // 初次加载（尚无结果）不算断线；仅两个查询都进入 error 才提示
+  const offline = stats.isError && torrents.isError
+  if (!offline) return null
+  return (
+    <div className="eu-conn-lost" role="alert">
+      {lang.system.status.connect || '无法连接服务器，正在重试…'}
     </div>
   )
 }

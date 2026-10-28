@@ -24,6 +24,17 @@
   --eu-accent: #6b9cde;
   --eu-scroll-1: #e0ecff;
   --eu-scroll-2: #c8ddf5;
+  /* B5：种子进度条配色（自 app.css 硬编码迁入，默认主题保持原值） */
+  --eu-progress-download: #77bbff;
+  --eu-progress-error: #bf4040;
+  --eu-progress-warning: #cc9900;
+  --eu-progress-seed: #acffac;
+  --eu-progress-stop: #808080;
+  --eu-progress-check: #808040;
+  /* B5：提示条 / Toast 配色（自 app.css .tip/.eu-toast 硬编码迁入，保持原值） */
+  --eu-tip-bg: #ffffcc;
+  --eu-tip-border: #ff9900;
+  --eu-tip-text: #555555;
 }
 
 [data-theme='gray'] {
@@ -123,6 +134,16 @@
   --eu-accent: #0052a3;
   --eu-scroll-1: #555;
   --eu-scroll-2: #3a3a3a;
+  /* B5：深色下进度条整体提亮/降饱和（避免高饱和色块在暗背景上刺眼）；提示条改深底浅字 */
+  --eu-progress-download: #99c8ff;
+  --eu-progress-error: #d46666;
+  --eu-progress-warning: #d9ad3f;
+  --eu-progress-seed: #a8d9a8;
+  --eu-progress-stop: #8a8a8a;
+  --eu-progress-check: #a3a36b;
+  --eu-tip-bg: #3a3a2a;
+  --eu-tip-border: #b8860b;
+  --eu-tip-text: #eeeeee;
 }
 
 [data-theme='metro-blue'] {
@@ -231,6 +252,16 @@
   --eu-accent: #0b93d5;
   --eu-scroll-1: #555;
   --eu-scroll-2: #333;
+  /* B5：深色下进度条提亮/降饱和；提示条改深底浅字（边框用主题青色强调） */
+  --eu-progress-download: #7fb8e6;
+  --eu-progress-error: #d46666;
+  --eu-progress-warning: #d9ad3f;
+  --eu-progress-seed: #a8d9a8;
+  --eu-progress-stop: #8a8a8a;
+  --eu-progress-check: #a3a36b;
+  --eu-tip-bg: #12262e;
+  --eu-tip-border: #0b93d5;
+  --eu-tip-text: #eeeeee;
 }
 
 [data-theme='ui-pepper-grinder'] {
@@ -272,4 +303,14 @@
   --eu-accent: #a45b13;
   --eu-scroll-1: #efe4d0;
   --eu-scroll-2: #dbc79f;
+  /* B5：向暖色米色调靠拢（降饱和、偏暖），提示条沿用奶油底但压暗文字/边框为暖棕保证对比度 */
+  --eu-progress-download: #8cbcd9;
+  --eu-progress-error: #c25b4e;
+  --eu-progress-warning: #d9a441;
+  --eu-progress-seed: #a8cba0;
+  --eu-progress-stop: #9c8f78;
+  --eu-progress-check: #a3985f;
+  --eu-tip-bg: #fff3cf;
+  --eu-tip-border: #a45b13;
+  --eu-tip-text: #5a4a2f;
 }

@@ -32,7 +32,7 @@ export function SystemConfigDialog({ dialogId }: { dialogId: string }) {
 
   if (!form) {
     return (
-      <Dialog title={L.title} width={680} height={500} onClose={() => closeDialog(dialogId)}>
+      <Dialog title={L.title} width={680} height={500} resizable dialogId={dialogId} onClose={() => closeDialog(dialogId)}>
         <div className="p-4">{L.loading}</div>
       </Dialog>
     )
@@ -77,6 +77,8 @@ export function SystemConfigDialog({ dialogId }: { dialogId: string }) {
       title={L.title}
       width={680}
       height={520}
+      resizable
+      dialogId={dialogId}
       onClose={() => closeDialog(dialogId)}
       footer={
         <>

@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react'
 import { Dialog, LinkButton, ComboBox, NumberSpinner, SwitchButton } from '../components/ui'
 import { useLang } from '../i18n'
-import { closeDialog, useUi } from '../lib/ui'
+import { closeDialog, showProgress, hideProgress, useUi } from '../lib/ui'
 import { useSession, useRpcMutation, useTorrents } from '../api/queries'
 import { getSnapshot } from '../lib/torrents'
 import { getFolderDictionary, useConfig, saveConfig } from '../lib/config'
@@ -153,6 +153,8 @@ export function AddTorrentDialog({ dialogId, files }: { dialogId: string; files?
       title={lang.toolbar['add-torrent']}
       width={620}
       height={config.nav.labels ? 560 : 400}
+      resizable={!files}
+      dialogId={dialogId}
       onClose={() => closeDialog(dialogId)}
       footer={
         <>
@@ -285,15 +287,18 @@ export function RemoveConfirmDialog({ dialogId, ids }: { dialogId: string; ids: 
           <LinkButton
             icon="icon-ok"
             loading={mutation.isPending}
-            onClick={() =>
+            onClick={() => {
+              // 批量删除期间在右下角显示进度浮层（onSettled 清除）
+              showProgress(`正在处理 ${ids.length} 个种子…`)
               mutation.mutate(
                 { method: 'torrent-remove', args: { ids, 'delete-local-data': removeData } },
                 {
                   onSuccess: () => closeDialog(dialogId),
                   onError: () => alert(L['remove-error']),
+                  onSettled: () => hideProgress(),
                 },
               )
-            }
+            }}
           >
             {lang.dialog.public['button-ok']}
           </LinkButton>
@@ -332,6 +337,8 @@ export function RenameDialog({ dialogId, id }: { dialogId: string; id: number })
       title={L.title}
       width={520}
       height={200}
+      resizable
+      dialogId={dialogId}
       onClose={() => closeDialog(dialogId)}
       footer={
         <>
@@ -423,10 +430,16 @@ export function ChangeDownloadDirDialog({ dialogId, ids }: { dialogId: string; i
     const moveIds = ids.filter((id) => snap.all[id] && snap.all[id].downloadDir !== dir)
     setProgress(`-> ${moveIds.length}`)
     if (moveIds.length) {
-      await rpc('torrent-set-location', { ids: moveIds, location: dir, move: moveData })
-    }
-    if (recheck && moveIds.length) {
-      await rpc('torrent-verify', { ids: moveIds })
+      // 批量迁移期间在右下角显示进度浮层
+      showProgress(`正在处理 ${moveIds.length} 个种子…`)
+      try {
+        await rpc('torrent-set-location', { ids: moveIds, location: dir, move: moveData })
+        if (recheck) {
+          await rpc('torrent-verify', { ids: moveIds })
+        }
+      } finally {
+        hideProgress()
+      }
     }
     mutation.reset()
     void mutation.mutate({ method: 'session-stats' })
@@ -526,6 +539,8 @@ export function ChangeSpeedLimitDialog({ dialogId, ids }: { dialogId: string; id
       title={L.title}
       width={600}
       height={200}
+      resizable
+      dialogId={dialogId}
       onClose={() => closeDialog(dialogId)}
       footer={
         <>
@@ -654,12 +669,18 @@ export function ReplaceTrackerDialog({ dialogId }: { dialogId: string }) {
       }
     }
     let done = 0
-    for (const [trackerId, torrentIds] of grouped) {
-      done++
-      setMessage(`-> [${done}/${grouped.size}]`)
-      await rpc('torrent-set', { ids: torrentIds, trackerReplace: [trackerId, newUrl] })
+    // 批量替换期间在右下角显示进度浮层（count 为命中的种子数；无命中时不显示）
+    if (count > 0) showProgress(`正在处理 ${count} 个种子…`)
+    try {
+      for (const [trackerId, torrentIds] of grouped) {
+        done++
+        setMessage(`-> [${done}/${grouped.size}]`)
+        await rpc('torrent-set', { ids: torrentIds, trackerReplace: [trackerId, newUrl] })
+      }
+    } finally {
+      setBusy(false)
+      hideProgress()
     }
-    setBusy(false)
     if (count === 0) {
       setMessage(L['not-found'])
       setTimeout(() => setMessage(''), 2500)

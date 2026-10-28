@@ -1,6 +1,6 @@
 // 种子列表 — 复刻 m_list 面板：数据过滤(导航节点)、排序、分页、多选、右键菜单
 import { useEffect, useMemo, useState } from 'react'
-import { DataGrid, type GridColumn } from './DataGrid'
+import { DataGrid, makeColumnMenuItems, type GridColumn } from './DataGrid'
 import { useMenu, LinkButton, Icon } from './ui'
 import { useLang } from '../i18n'
 import { useConfig, userConfigStore, persistUserConfig, configStore, saveConfig } from '../lib/config'
@@ -16,7 +16,7 @@ import { rpc } from '../lib/rpc'
 type Row = Torrent & Record<string, unknown>
 
 export function TorrentList() {
-  const { lang } = useLang()
+  const { lang, name: langName } = useLang()
   const config = useConfig()
   const ui = useUi()
   const userCfg = useStore(userConfigStore)
@@ -193,6 +193,45 @@ export function TorrentList() {
     )
   }
 
+  // B1 键盘导航补充按键：Delete/Backspace 删除已勾选或当前行、Enter 切换详情面板展开。
+  // （对话框打开时 DataGrid 的 keyboard 已整体关闭，不会误触发）
+  const onGridKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault()
+      const ids =
+        ui.checkedIds.length > 0 ? ui.checkedIds.slice() : ui.currentTorrentId > 0 ? [ui.currentTorrentId] : []
+      if (ids.length > 0) openDialog('torrent-remove-confirm', { ids })
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      uiStore.set({ attributeExpanded: !uiStore.get().attributeExpanded })
+    }
+  }
+
+  // C1 行内快捷操作：hover 行时右端浮出 开始/暂停 + 删除 两个小图标按钮
+  const renderRowActions = (row: Row) => {
+    const stopped = row.status === STATUS.stopped
+    return (
+      <>
+        <LinkButton
+          icon={stopped ? 'tr-icon-start' : 'tr-icon-pause'}
+          title={stopped ? lang.toolbar.tip.start : lang.toolbar.tip.pause}
+          onClick={(e) => {
+            e.stopPropagation()
+            mutation.mutate({ method: stopped ? 'torrent-start' : 'torrent-stop', args: { ids: [row.id] } })
+          }}
+        />
+        <LinkButton
+          icon="tr-icon-delete"
+          title={lang.toolbar.tip.remove}
+          onClick={(e) => {
+            e.stopPropagation()
+            openDialog('torrent-remove-confirm', { ids: [row.id] })
+          }}
+        />
+      </>
+    )
+  }
+
   return (
     <div className="eu-panel h-full !border-0">
       <div className="eu-panel-header flex items-center">
@@ -202,6 +241,15 @@ export function TorrentList() {
             icon={config.autoExpandAttribute ? 'icon-enabled' : 'icon-disabled'}
             title={lang['torrent-head'].buttons.autoExpandAttribute}
             onClick={() => saveConfig({ autoExpandAttribute: !config.autoExpandAttribute })}
+          />
+          {/* C5 列设置入口：弹出与表头右键完全相同的列显隐菜单（复用 makeColumnMenuItems） */}
+          <LinkButton
+            icon="tr-icon-system-config"
+            title={langName === 'zh-CN' ? '列设置' : 'Columns'}
+            onClick={(e) => {
+              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+              show(makeColumnMenuItems(columns, persistColumns), rect.left, rect.bottom + 2)
+            }}
           />
         </span>
       </div>
@@ -231,8 +279,27 @@ export function TorrentList() {
           onPageChange={setPage}
           onPageSizeChange={(s) => saveConfig({ pageSize: s })}
           onRowContextMenu={onRowContextMenu}
-          emptyText={lang.system.status.notfinal}
+          keyboard={ui.dialogs.length === 0}
+          onKeyDown={onGridKeyDown}
+          rowActions={renderRowActions}
         />
+        {/* B7 空状态：当前过滤结果为空时，表格中央给出大图标 + 文案 + 添加入口 */}
+        {rows.length === 0 && (
+          <div className="absolute inset-0 z-[5] flex select-none flex-col items-center justify-center gap-2" style={{ color: '#999' }}>
+            <i className="iconfont tr-icon-folder" style={{ fontSize: 54, lineHeight: 1 }} aria-hidden />
+            <div>{langName === 'zh-CN' ? '暂无种子' : 'No torrents'}</div>
+            <a
+              className="l-btn"
+              style={{ border: '1px solid var(--eu-border)', background: 'var(--eu-menu-bg, #fff)', color: 'var(--eu-text)', padding: '0 10px' }}
+              title={lang.toolbar.tip['add-torrent']}
+              href="javascript:void(0)"
+              onClick={() => openDialog('torrent-add')}
+            >
+              <Icon name="tr-icon-plus" />
+              <span className="l-btn-text">{lang.toolbar['add-torrent']}</span>
+            </a>
+          </div>
+        )}
       </div>
     </div>
   )

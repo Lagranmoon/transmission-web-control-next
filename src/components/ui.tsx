@@ -1,5 +1,8 @@
 // EasyUI 风格基础组件 — iconfont 图标 / linkbutton / 菜单 / 对话框 / tabs / 分页
+// 组件层样式（缩放手柄/Tooltip/Toast/进度浮层）统一放在 components.css
+import '../styles/components.css'
 import {
+  cloneElement,
   createContext,
   useCallback,
   useContext,
@@ -8,13 +11,83 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type ReactElement,
   type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
+import { useProgress, useUi } from '../lib/ui'
 
 /* ---------------- 图标 ---------------- */
 export function Icon({ name, className = '' }: { name: string; className?: string }) {
   return <i className={`iconfont ${name} ${className}`} aria-hidden />
+}
+
+/* ---------------- Tooltip（悬浮提示，延迟 300ms，视口边缘自动翻转） ---------------- */
+export function Tooltip({
+  content,
+  children,
+}: {
+  content?: ReactNode
+  /** 需接收鼠标事件的单个元素（通过 cloneElement 注入，不额外包一层 DOM） */
+  children: ReactElement<{
+    onMouseEnter?: React.MouseEventHandler
+    onMouseLeave?: React.MouseEventHandler
+  }>
+}) {
+  const [visible, setVisible] = useState(false)
+  const timerRef = useRef<number | null>(null)
+  const targetRef = useRef<HTMLElement | null>(null)
+  const tipRef = useRef<HTMLDivElement>(null)
+
+  // 卸载时清理定时器
+  useEffect(
+    () => () => {
+      if (timerRef.current !== null) clearTimeout(timerRef.current)
+    },
+    [],
+  )
+
+  // 显示后测量气泡并定位：默认在目标下方居中，下方/左右放不下时自动翻转或收拢
+  useLayoutEffect(() => {
+    if (!visible || !targetRef.current || !tipRef.current) return
+    const rect = targetRef.current.getBoundingClientRect()
+    const el = tipRef.current
+    const w = el.offsetWidth
+    const h = el.offsetHeight
+    let top = rect.bottom + 6
+    if (top + h > window.innerHeight - 4) top = rect.top - h - 6 // 下方放不下：翻转到上方
+    let left = rect.left + rect.width / 2 - w / 2
+    left = Math.max(4, Math.min(left, window.innerWidth - w - 4)) // 左右收拢进视口
+    el.style.top = `${Math.round(top)}px`
+    el.style.left = `${Math.round(left)}px`
+  }, [visible, content])
+
+  // 无内容时原样渲染（不包一层，不影响布局）
+  if (content === undefined || content === null || content === '') return children
+
+  return (
+    <>
+      {cloneElement(children, {
+        onMouseEnter: (e: React.MouseEvent) => {
+          targetRef.current = e.currentTarget as HTMLElement
+          if (timerRef.current !== null) clearTimeout(timerRef.current)
+          timerRef.current = window.setTimeout(() => setVisible(true), 300)
+        },
+        onMouseLeave: () => {
+          if (timerRef.current !== null) clearTimeout(timerRef.current)
+          timerRef.current = null
+          setVisible(false)
+        },
+      })}
+      {visible &&
+        createPortal(
+          <div className="eu-tooltip" ref={tipRef} role="tooltip">
+            {content}
+          </div>,
+          document.body,
+        )}
+    </>
+  )
 }
 
 /* ---------------- linkbutton ---------------- */
@@ -37,10 +110,9 @@ export function LinkButton({
   className?: string
   children?: ReactNode
 }) {
-  return (
+  const btn = (
     <a
       className={`l-btn ${disabled || loading ? 'l-btn-disabled' : ''} ${className}`}
-      title={title}
       onClick={(e) => {
         if (disabled || loading) return
         onClick?.(e)
@@ -56,6 +128,8 @@ export function LinkButton({
       {children}
     </a>
   )
+  // 有 title 时改用自定义 Tooltip（300ms 延迟 + 边缘翻转），替代原生 title
+  return title ? <Tooltip content={title}>{btn}</Tooltip> : btn
 }
 
 /* ---------------- 菜单 ---------------- */
@@ -160,6 +234,27 @@ export function MenuProvider({ children }: { children: ReactNode }) {
 }
 
 /* ---------------- 对话框 ---------------- */
+/** resizable 对话框的尺寸记忆（按 dialogId 存 localStorage），key 与原版 config 风格一致 */
+const DIALOG_SIZE_KEY = 'twc.dialogSize.'
+const DIALOG_MIN_WIDTH = 320
+const DIALOG_MIN_HEIGHT = 160
+
+function loadDialogSize(dialogId: string): { width: number; height: number } | null {
+  try {
+    const raw = localStorage.getItem(DIALOG_SIZE_KEY + dialogId)
+    if (!raw) return null
+    const s = JSON.parse(raw) as { width?: unknown; height?: unknown }
+    if (typeof s.width !== 'number' || typeof s.height !== 'number') return null
+    // 恢复时限制在当前视口内，避免小屏上打开即出界
+    return {
+      width: Math.max(DIALOG_MIN_WIDTH, Math.min(s.width, window.innerWidth - 16)),
+      height: Math.max(DIALOG_MIN_HEIGHT, Math.min(s.height, window.innerHeight - 16)),
+    }
+  } catch {
+    return null
+  }
+}
+
 export function Dialog({
   title,
   width = 420,
@@ -169,6 +264,8 @@ export function Dialog({
   footer,
   modal = true,
   style,
+  resizable = false,
+  dialogId,
 }: {
   title: ReactNode
   width?: number
@@ -178,9 +275,19 @@ export function Dialog({
   footer?: ReactNode
   modal?: boolean
   style?: CSSProperties
+  /** 是否允许右下角拖拽调整大小（对应原版 easyui dialog 的 resizable:true） */
+  resizable?: boolean
+  /** 对话框标识：resizable 时按此 id 记忆/恢复尺寸 */
+  dialogId?: string
 }) {
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
   const dragRef = useRef<{ dx: number; dy: number } | null>(null)
+  // 上次拖出的尺寸（打开时恢复）
+  const [size, setSize] = useState<{ width: number; height: number } | null>(() =>
+    dialogId ? loadDialogSize(dialogId) : null,
+  )
+  const effWidth = size?.width ?? width
+  const effHeight = size?.height ?? height
 
   const onDragStart = (e: React.MouseEvent) => {
     if (e.button !== 0) return
@@ -205,14 +312,44 @@ export function Dialog({
     window.addEventListener('mouseup', up)
   }
 
+  /** 右下角手柄拖拽调整大小（最小 320x160，不超出视口），松手时按 dialogId 持久化 */
+  const onResizeStart = (e: React.MouseEvent) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    e.stopPropagation()
+    const rect = (e.currentTarget.closest('.eu-dialog') as HTMLElement).getBoundingClientRect()
+    const startX = e.clientX
+    const startY = e.clientY
+    let w = rect.width
+    let h = rect.height
+    const move = (ev: MouseEvent) => {
+      w = Math.max(DIALOG_MIN_WIDTH, Math.min(rect.width + ev.clientX - startX, window.innerWidth - 8))
+      h = Math.max(DIALOG_MIN_HEIGHT, Math.min(rect.height + ev.clientY - startY, window.innerHeight - 8))
+      setSize({ width: w, height: h })
+    }
+    const up = () => {
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+      if (dialogId) {
+        try {
+          localStorage.setItem(DIALOG_SIZE_KEY + dialogId, JSON.stringify({ width: w, height: h }))
+        } catch {
+          // 隐私模式等写入失败时静默忽略
+        }
+      }
+    }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+  }
+
   return createPortal(
     <>
       {modal && <div className="eu-dialog-mask" onMouseDown={onClose} />}
       <div
         className="eu-dialog"
         style={{
-          width,
-          height,
+          width: effWidth,
+          height: effHeight,
           left: pos?.left,
           top: pos?.top,
           ...style,
@@ -238,6 +375,7 @@ export function Dialog({
         </div>
         <div className="eu-dialog-body">{children}</div>
         {footer !== undefined && <div className="eu-dialog-footer">{footer}</div>}
+        {resizable && <div className="eu-dialog-resizer" onMouseDown={onResizeStart} />}
       </div>
     </>,
     document.body,
@@ -345,6 +483,16 @@ export function NumberSpinner({
   disabled?: boolean
 }) {
   const clamp = (v: number) => Math.min(max ?? Infinity, Math.max(min ?? -Infinity, v))
+  // 大热区：点击输入框上半区 +1、下半区 -1（对应原版 spinner 的点击行为）
+  const onAreaClick = (e: React.MouseEvent<HTMLInputElement>) => {
+    if (disabled) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const isUpper = e.clientY - rect.top < rect.height / 2
+    onChange(clamp(value + (isUpper ? 1 : -1)))
+  }
+  // ▲▼ 按钮：不小于 10x9px，保持 EasyUI 竖排双按钮外观
+  const arrowClass =
+    'flex-1 text-[9px] leading-none border border-[var(--eu-border)] cursor-pointer select-none flex items-center justify-center'
   return (
     <span className="inline-flex items-stretch" style={{ width }}>
       <input
@@ -355,17 +503,20 @@ export function NumberSpinner({
           const v = Number(e.target.value)
           if (!Number.isNaN(v)) onChange(v)
         }}
-        style={{ textAlign: 'center', width: width - 16 }}
+        onClick={onAreaClick}
+        style={{ textAlign: 'center', width: width - 16, cursor: 'ns-resize' }}
       />
       <span className="inline-flex flex-col" style={{ width: 16 }}>
         <span
-          className="flex-1 text-[7px] leading-[8px] border border-[var(--eu-border)] rounded-tr cursor-pointer select-none text-center"
+          className={`${arrowClass} rounded-tr`}
+          style={{ minWidth: 10, minHeight: 9 }}
           onClick={() => !disabled && onChange(clamp(value + 1))}
         >
           ▲
         </span>
         <span
-          className="flex-1 text-[7px] leading-[8px] border border-t-0 border-[var(--eu-border)] rounded-br cursor-pointer select-none text-center"
+          className={`${arrowClass} border-t-0 rounded-br`}
+          style={{ minWidth: 10, minHeight: 9 }}
           onClick={() => !disabled && onChange(clamp(value - 1))}
         >
           ▼
@@ -562,8 +713,37 @@ export function SearchBox({
         }}
         title={placeholder}
       >
-        <span style={{ fontSize: 12 }}>🔍</span>
+        <Icon name="tr-icon-search" />
       </span>
     </span>
+  )
+}
+
+/* ---------------- Toast 浮层宿主（视口顶部居中、多条堆叠、各自自动消失） ---------------- */
+export function ToastHost() {
+  const ui = useUi()
+  if (ui.toasts.length === 0) return null
+  return createPortal(
+    <div className="eu-toast-host">
+      {ui.toasts.map((t) => (
+        <div key={t.id} className="eu-toast-item">
+          {t.text}
+        </div>
+      ))}
+    </div>,
+    document.body,
+  )
+}
+
+/* ---------------- 批量操作进度浮层（右下角，带 loading 图标） ---------------- */
+export function ProgressOverlay() {
+  const progress = useProgress()
+  if (!progress.text) return null
+  return createPortal(
+    <div className="eu-progress-overlay">
+      <i className="icon-loading" />
+      <span>{progress.text}</span>
+    </div>,
+    document.body,
   )
 }

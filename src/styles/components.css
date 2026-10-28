@@ -1,0 +1,103 @@
+/* 组件层样式 — 对话框缩放手柄 / Tooltip 气泡 / Toast 浮层 / 批量进度浮层 / 断线提示条
+   颜色一律取 themes.css 的 --eu-* 主题变量（带兜底值），随 <html data-theme> 切换 */
+
+/* ---------- Dialog 右下角缩放手柄（resizable） ---------- */
+.eu-dialog-resizer {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+  z-index: 2;
+  /* 斜纹手柄，颜色跟随主题边框 */
+  background: repeating-linear-gradient(
+    135deg,
+    transparent 0 3px,
+    var(--eu-border, #95b8e7) 3px 4px
+  );
+  opacity: 0.7;
+}
+.eu-dialog-resizer:hover {
+  opacity: 1;
+}
+
+/* ---------- Tooltip 气泡（替代原生 title，linkbutton 用） ---------- */
+.eu-tooltip {
+  position: fixed;
+  z-index: 10000;
+  max-width: 320px;
+  padding: 3px 8px;
+  background: var(--eu-menu-bg, #fafafa);
+  border: 1px solid var(--eu-menu-border, var(--eu-border, #ddd));
+  color: var(--eu-text, #444);
+  border-radius: 3px;
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ---------- Toast 浮层（视口顶部居中、多条堆叠） ---------- */
+.eu-toast-host {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10001;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+.eu-toast-item {
+  background: var(--eu-header-top, #eff5ff);
+  border: 1px solid var(--eu-border, #95b8e7);
+  color: var(--eu-text, #444);
+  padding: 6px 14px;
+  border-radius: 4px;
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+  animation: eu-toast-in 0.15s ease-out;
+}
+@keyframes eu-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------- 批量操作进度浮层（右下角） ---------- */
+.eu-progress-overlay {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--eu-menu-bg, #fff);
+  border: 1px solid var(--eu-border, #95b8e7);
+  color: var(--eu-text, #444);
+  border-radius: 4px;
+  box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.25);
+  white-space: nowrap;
+}
+.eu-progress-overlay .icon-loading {
+  flex: none;
+}
+
+/* ---------- 断线提示条（工具栏下方，红黄警示） ---------- */
+.eu-conn-lost {
+  flex: none;
+  padding: 4px 10px;
+  text-align: center;
+  background: #ffffcc;
+  color: #a02020;
+  border-bottom: 1px solid #ff9900;
+  user-select: none;
+}

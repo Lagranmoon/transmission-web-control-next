@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { Dialog, LinkButton, NumberSpinner, ComboBox } from '../components/ui'
 import { useLang } from '../i18n'
-import { closeDialog, openDialog, showToast } from '../lib/ui'
+import { closeDialog, openDialog, showToast, showProgress, hideProgress } from '../lib/ui'
 import { useSession, useRpcMutation, useTorrents } from '../api/queries'
 import { getSnapshot } from '../lib/torrents'
 import { configStore, getFolderDictionary, setFolderDictionary, saveConfig, userConfigStore } from '../lib/config'
@@ -197,6 +197,7 @@ export function AutoMatchDialog({ dialogId, ids }: AutoMatchProps) {
 
   const stop = () => {
     setWorking(false)
+    hideProgress()
     mutation.mutate({ method: 'session-stats' })
     closeDialog(dialogId)
   }
@@ -228,6 +229,8 @@ export function AutoMatchDialog({ dialogId, ids }: AutoMatchProps) {
     workingRef.current = true
     ignoreRef.current = false
     setWorking(true)
+    // 自动匹配耗时较长：右下角浮层提示处理进度（stop() 中清除）
+    showProgress(`正在处理 ${candidates.length} 个种子…`)
     localStorage.setItem('auto-match-data-folder-work-mode', mode)
     localStorage.setItem('auto-match-data-folder-time-interval', String(interval * 1000))
 

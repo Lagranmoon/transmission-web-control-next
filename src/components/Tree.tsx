@@ -72,7 +72,10 @@ function TreeNode({
         className={`eu-tree-node ${selectedId === node.id ? 'selected' : ''}`}
         onClick={() => onSelect(node)}
       >
-        <span style={{ display: 'inline-block', width: depth * indentSize }} />
+        {/* 层级缩进：每个祖先层级一列（宽 indentSize），列内绘制连续竖参考线（A3 树线，样式见 app.css .eu-tree-indent.line） */}
+        {Array.from({ length: depth }, (_, i) => (
+          <span key={i} className="eu-tree-indent line" style={{ width: indentSize }} />
+        ))}
         {hasChildren ? (
           <span
             className={`eu-tree-switch ${isOpen ? 'open' : 'closed'}`}

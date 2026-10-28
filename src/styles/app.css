@@ -8,20 +8,6 @@
  *   边框 #95B8E7 / 面板头渐变 #EFF5FF→#E0ECFF / 选中行 #ffe48d
  *   悬停 #eaf2ff / 斑马行 #fafafa / 菜单 #fafafa 边框 #ddd
  */
-:root {
-  --eu-border: #95b8e7;
-  --eu-header-top: #eff5ff;
-  --eu-header-bottom: #e0ecff;
-  --eu-title: #0e2d5f;
-  --eu-selected: #ffe48d;
-  --eu-hover: #eaf2ff;
-  --eu-hover-border: #b7d2ff;
-  --eu-alt: #fafafa;
-  --eu-toolbar: #f0f0f0;
-  --eu-dialog-btn: #f4f4f4;
-  --eu-line: #dddddd;
-}
-
 html,
 body,
 #root {
@@ -218,30 +204,36 @@ textarea.eu-textbox {
 .eu-datagrid-row:hover:not(.selected) > td {
   background: var(--eu-hover);
 }
-.eu-datagrid-cell {
-  padding: 5px 8px;
+/* 单元格：单行省略（EasyUI 行为）。
+   C3 修复：原选择器 .eu-datagrid-cell 自 1c45bd4 起从未匹配（组件渲染的是 datagrid-cell），
+   nowrap/省略号/内边距全部失效，长种子名换行把行高撑到 29px，与虚拟滚动占位的 26px/行漂移。
+   垂直方向 padding 4px + line-height 16px = 24px 内容高，加 td 下边框 1px 共 25px ≤ 26px 行高，
+   窗口化行由 DataGrid 内联高度钉在恰好 26px（VIRTUAL_ROW_HEIGHT），保证占位计算与真实行高一致 */
+.eu-datagrid-scroll .datagrid-cell {
+  padding: 4px 8px;
+  line-height: 16px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   position: relative;
 }
-.eu-datagrid-cell.sortable {
+.eu-datagrid-scroll .datagrid-cell.sortable {
   cursor: pointer;
   user-select: none;
   /* 给排序箭头预留空间，避免与文字挤压 */
   padding-right: 20px;
 }
-.eu-datagrid-cell.sortable:hover {
+.eu-datagrid-scroll .datagrid-cell.sortable:hover {
   background: var(--eu-hover);
 }
-.eu-datagrid-cell .datagrid-cell-text {
+.eu-datagrid-scroll .datagrid-cell .datagrid-cell-text {
   display: inline-block;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   vertical-align: middle;
 }
-.eu-datagrid-cell .sort-icon {
+.eu-datagrid-scroll .datagrid-cell .sort-icon {
   position: absolute;
   right: 6px;
   top: 50%;
@@ -250,7 +242,7 @@ textarea.eu-textbox {
   color: #a02020;
   line-height: 1;
 }
-.eu-datagrid-cell .col-resizer {
+.eu-datagrid-scroll .datagrid-cell .col-resizer {
   position: absolute;
   right: 0;
   top: 0;
@@ -299,6 +291,15 @@ textarea.eu-textbox {
   width: 16px;
   height: 16px;
   vertical-align: middle;
+}
+/* A3 树线：祖先层级的每个缩进列绘制一条竖参考线（颜色随主题 --eu-line），
+   行高与节点行一致使相邻行的线段首尾相接，形成对齐 EasyUI tree lines 的连续竖线 */
+.eu-tree-indent.line {
+  height: 100%;
+  background-image: linear-gradient(var(--eu-line), var(--eu-line));
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 1px 100%;
 }
 .eu-tree-switch {
   display: inline-block;
@@ -484,23 +485,25 @@ textarea.eu-textbox {
   top: 0;
   z-index: 0;
 }
+/* B5：六种进度条配色改为 CSS 变量，默认值见 themes.css :root（保持原硬编码值），
+   black / ui-dark-hive / ui-sunny 等深色/暖色主题由 themes.css 提供适配值 */
 .torrent-progress-download {
-  background-color: #77bbff;
+  background-color: var(--eu-progress-download);
 }
 .torrent-progress-error {
-  background-color: #bf4040;
+  background-color: var(--eu-progress-error);
 }
 .torrent-progress-warning {
-  background-color: #cc9900;
+  background-color: var(--eu-progress-warning);
 }
 .torrent-progress-seed {
-  background-color: #acffac;
+  background-color: var(--eu-progress-seed);
 }
 .torrent-progress-stop {
-  background-color: #808080;
+  background-color: var(--eu-progress-stop);
 }
 .torrent-progress-check {
-  background-color: #808040;
+  background-color: var(--eu-progress-check);
 }
 
 /* ---------- 列表内图标标签 ---------- */
@@ -673,15 +676,15 @@ i.icon-flag-edit {
   margin: 4px 0;
 }
 
-/* 提示条 */
+/* 提示条（B5：配色改为变量，深色主题由 themes.css 提供深底浅字适配值保证对比度） */
 .tip {
   padding: 5px;
   padding-left: 25px;
   text-align: left;
-  border: 1px solid #ff9900;
-  background: #ffffcc url('/assets/images/balloon.png') left no-repeat;
+  border: 1px solid var(--eu-tip-border);
+  background: var(--eu-tip-bg) url('/assets/images/balloon.png') left no-repeat;
   background-position: 5px 6px;
-  color: #555555;
+  color: var(--eu-tip-text);
   margin-bottom: 2px;
   display: block;
 }
@@ -709,16 +712,16 @@ i.icon-flag-edit {
   opacity: 0.4;
 }
 
-/* toast */
+/* toast（B5：与 .tip 共用一组变量，深色主题保证可读性） */
 .eu-toast {
   position: fixed;
   top: 90px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 9999;
-  background: #ffffcc;
-  border: 1px solid #ff9900;
-  color: #555;
+  background: var(--eu-tip-bg);
+  border: 1px solid var(--eu-tip-border);
+  color: var(--eu-tip-text);
   padding: 6px 14px;
   box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
 }
@@ -814,4 +817,44 @@ th.datagrid-head-cell.drop-over-before {
 }
 .m-button:active {
   background: #ddd;
+}
+
+/* ---------- C6 全局键盘焦点环 ---------- */
+/* 仅键盘导航（:focus-visible）时显示，颜色随主题强调色；置于文件末尾以覆盖 .eu-textbox 等处的 outline:none */
+:focus-visible {
+  outline: 2px solid var(--eu-accent);
+  outline-offset: 1px;
+}
+
+/* ---------- B6 响应式断点（窄窗口，纯 CSS 降级，不改组件结构） ---------- */
+@media (max-width: 900px) {
+  /* 顶部标题行：logo 缩小（HTML width/height 属性可被 CSS 覆盖，height:auto 按比例缩放），
+     面板头允许换行收缩，右侧主题切换/按钮组不再被 nowrap 撑出横向溢出 */
+  #logo {
+    width: 110px;
+    height: auto;
+    flex: none;
+  }
+  .eu-panel-header {
+    white-space: normal;
+    flex-wrap: wrap;
+  }
+  /* 工具栏：本身已 flex-wrap，这里保证换行时按钮不被压缩变形 */
+  .l-btn {
+    flex: none;
+  }
+  /* 搜索框不被挤压：右侧容器不参与 flex 收缩（放不下时整组换行而非变窄） */
+  .ml-auto.flex {
+    flex-shrink: 0;
+  }
+  /* 左右布局可用：左侧导航宽度限制在视口 36%、上限 220px（!important 覆盖拖拽写入的内联宽度），
+     隐藏竖向拖拽条避免窄屏误拖，保证中栏列表有剩余宽度、整体无重叠溢出 */
+  div:has(> .eu-splitter-v) {
+    width: min(36vw, 220px) !important;
+    min-width: 120px;
+    flex: none;
+  }
+  .eu-splitter-v {
+    display: none;
+  }
 }

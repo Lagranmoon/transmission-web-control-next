@@ -5,6 +5,7 @@ import { TopBar } from '../components/TopBar'
 import { NavPanel } from '../components/NavPanel'
 import { TorrentList } from '../components/TorrentList'
 import { AttributePanel } from '../components/AttributePanel'
+import { ToastHost, ProgressOverlay } from '../components/ui'
 import { DialogHost } from '../dialogs'
 import { useUi, uiStore } from '../lib/ui'
 import { useConfig, saveConfig } from '../lib/config'
@@ -133,6 +134,9 @@ export function RootLayout() {
         </div>
       </div>
       <DialogHost />
+      {/* 全局浮层：toast（顶部居中堆叠）与批量操作进度（右下角） */}
+      <ToastHost />
+      <ProgressOverlay />
       {dropping && (
         <div className="dropArea">
           <span style={{ position: 'absolute', top: 150, left: 150, fontSize: 40, fontWeight: 'bold' }}>
