@@ -1,7 +1,7 @@
 {
   "name": "transmission-web-control-next",
   "private": true,
-  "version": "0.1.2",
+  "version": "0.1.3",
   "type": "module",
   "description": "Transmission Web Control — modern rewrite (Vite + React + TanStack Query + React Router + Tailwind CSS), 1:1 replica of ronggang/transmission-web-control",
   "license": "MIT",

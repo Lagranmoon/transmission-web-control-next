@@ -83,7 +83,9 @@ export function NavPanel() {
       },
     ]
 
-    if (config.nav.servers) {
+    if (config.nav.servers && snap.count > 0) {
+      // 原版行为：无种子时整个移除「服务器分布」节点，
+      // 避免空库时子节点永远停留在「加载中…」占位
       const trackers = Object.values(snap.trackers)
       const normal = trackers.filter((x) => !x.isBT)
       const bt = trackers.filter((x) => x.isBT)
