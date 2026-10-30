@@ -1,12 +1,14 @@
 // 公用格式化函数 — 1:1 移植自原项目 public.js
 
-function formatNumber(value: number, pattern = '###,###,###,###.00 '): string {
-  return value
-    .toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })
-    .padEnd(0)
+/** 两位小数 + 末尾空格（原版 formatNumber("###,###,###,###.00 ") 的 pattern 末尾空格经 fStr 追加），使 formatSize 输出 "1.50 KB" */
+function formatNumber(value: number): string {
+  return (
+    value
+      .toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }) + ' '
+  )
 }
 
 /** 字节数格式化；type === 'speed' 时追加 /s，与原 formatSize 行为一致 */

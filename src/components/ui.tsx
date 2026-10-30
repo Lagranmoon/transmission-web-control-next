@@ -105,7 +105,8 @@ export function LinkButton({
   text?: ReactNode
   title?: string
   disabled?: boolean
-  onClick?: (e: React.MouseEvent) => void
+  /** 鼠标点击与 Enter/Space 键盘触发共用；键盘路径收到的是 KeyboardEvent */
+  onClick?: (e: React.MouseEvent | React.KeyboardEvent) => void
   loading?: boolean
   className?: string
   children?: ReactNode
@@ -126,7 +127,7 @@ export function LinkButton({
         if (e.key === 'Enter' || e.key === ' ') {
           if (disabled || loading) return
           e.preventDefault()
-          onClick?.(e as unknown as React.MouseEvent)
+          onClick?.(e)
         }
       }}
     >
@@ -155,16 +156,14 @@ export type MenuItemSpec =
     }
   | '-'
 
-type MenuEntry = Exclude<MenuItemSpec, '-'> | '-'
-
 interface MenuState {
-  items: MenuEntry[]
+  items: MenuItemSpec[]
   x: number
   y: number
 }
 
 const MenuCtx = createContext<{
-  show: (items: MenuEntry[], x: number, y: number) => void
+  show: (items: MenuItemSpec[], x: number, y: number) => void
 }>({ show: () => {} })
 
 export function useMenu() {
@@ -355,7 +354,8 @@ export function Dialog({
 
   return createPortal(
     <>
-      {modal && <div className="eu-dialog-mask" onMouseDown={onClose} />}
+      {/* 对齐原版 EasyUI dialog：点击遮罩不关闭，防止误点丢表单内容 */}
+      {modal && <div className="eu-dialog-mask" />}
       <div
         className="eu-dialog"
         style={{
@@ -494,12 +494,34 @@ export function NumberSpinner({
   disabled?: boolean
 }) {
   const clamp = (v: number) => Math.min(max ?? Infinity, Math.max(min ?? -Infinity, v))
+  // 键入走本地字符串草稿（不做中间态提交，负号/清空可自由输入），
+  // blur/Enter 时经 clamp 一次性提交，与点击/箭头路径统一收敛到 [min,max]
+  const [draft, setDraft] = useState<string | null>(null)
+
+  /** 草稿可解析时以 clamp 后的草稿为“当前值”，否则回退到已提交值 */
+  const effectiveValue = () => {
+    if (draft !== null && draft.trim() !== '') {
+      const v = Number(draft)
+      if (!Number.isNaN(v)) return clamp(v)
+    }
+    return value
+  }
+
+  /** blur/Enter：草稿经 clamp 后提交（空草稿按 Number('') === 0 处理并收敛到 [min,max]）；不可解析则放弃草稿 */
+  const commitDraft = () => {
+    if (draft === null) return
+    const v = Number(draft)
+    setDraft(null)
+    if (!Number.isNaN(v)) onChange(clamp(v))
+  }
+
   // 大热区：点击输入框上半区 +1、下半区 -1（对应原版 spinner 的点击行为）
   const onAreaClick = (e: React.MouseEvent<HTMLInputElement>) => {
     if (disabled) return
     const rect = e.currentTarget.getBoundingClientRect()
     const isUpper = e.clientY - rect.top < rect.height / 2
-    onChange(clamp(value + (isUpper ? 1 : -1)))
+    setDraft(null)
+    onChange(clamp(effectiveValue() + (isUpper ? 1 : -1)))
   }
   // ▲▼ 按钮：不小于 10x9px，保持 EasyUI 竖排双按钮外观
   const arrowClass =
@@ -508,11 +530,12 @@ export function NumberSpinner({
     <span className="inline-flex items-stretch" style={{ width }}>
       <input
         className="eu-textbox w-full rounded-r-none"
-        value={value}
+        value={draft !== null ? draft : value}
         disabled={disabled}
-        onChange={(e) => {
-          const v = Number(e.target.value)
-          if (!Number.isNaN(v)) onChange(v)
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commitDraft}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commitDraft()
         }}
         onClick={onAreaClick}
         style={{ textAlign: 'center', width: width - 16, cursor: 'ns-resize' }}
@@ -521,14 +544,22 @@ export function NumberSpinner({
         <span
           className={`${arrowClass} rounded-tr`}
           style={{ minWidth: 10, minHeight: 9 }}
-          onClick={() => !disabled && onChange(clamp(value + 1))}
+          onClick={() => {
+            if (disabled) return
+            setDraft(null)
+            onChange(clamp(effectiveValue() + 1))
+          }}
         >
           ▲
         </span>
         <span
           className={`${arrowClass} border-t-0 rounded-br`}
           style={{ minWidth: 10, minHeight: 9 }}
-          onClick={() => !disabled && onChange(clamp(value - 1))}
+          onClick={() => {
+            if (disabled) return
+            setDraft(null)
+            onChange(clamp(effectiveValue() - 1))
+          }}
         >
           ▼
         </span>
@@ -633,11 +664,18 @@ export function ComboBox({
   useEffect(() => {
     if (!open) return
     const onDown = (e: MouseEvent) => {
-      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false)
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) {
+        // 对齐原版 combobox("getValue") 语义：外部点击关闭时，已手输的文本同样提交
+        if (editable && filter !== '') {
+          onChange(filter)
+          setFilter('')
+        }
+        setOpen(false)
+      }
     }
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
-  }, [open])
+  }, [open, editable, filter, onChange])
 
   const current = options.find((o) => o.value === value)
   const visible = filter
@@ -657,6 +695,15 @@ export function ComboBox({
           placeholder={placeholder}
           readOnly={!editable || !open || disabled}
           onChange={(e) => setFilter(e.target.value)}
+          onKeyDown={(e) => {
+            // 可编辑模式支持手输提交（如新增下载目录）：Enter 提交输入文本并关闭
+            if (!editable || e.key !== 'Enter') return
+            if (filter !== '') {
+              onChange(filter)
+              setFilter('')
+            }
+            setOpen(false)
+          }}
         />
         <span className="text-[8px] mr-0.5">▼</span>
       </div>
@@ -665,9 +712,15 @@ export function ComboBox({
           className="absolute z-[9998] bg-[var(--eu-surface)] text-[var(--eu-text)] border border-[var(--eu-border)] rounded-b shadow-md max-h-[260px] overflow-auto"
           style={{ top: '100%', left: 0, right: 0, minWidth: width }}
         >
-          {editable && !visible.some((o) => o.value === value) && value && filter === '' && (
+          {editable && value && filter === '' && !visible.some((o) => o.value === value) && (
             <div className="px-2 py-1 cursor-pointer hover:bg-[var(--eu-hover)]" onClick={() => { onChange(value); setOpen(false) }}>
               {value}
+            </div>
+          )}
+          {/* 手输文本未与选项完全一致时补一行可点的“按输入提交”，避免只能靠回车 */}
+          {editable && filter !== '' && !visible.some((o) => o.text === filter) && (
+            <div className="px-2 py-1 cursor-pointer hover:bg-[var(--eu-hover)]" onClick={() => { onChange(filter); setOpen(false); setFilter('') }}>
+              {filter}
             </div>
           )}
           {visible.map((o) => {
@@ -706,9 +759,11 @@ export function SearchBox({
   placeholder?: string
   width?: number
 }) {
+  const inputRef = useRef<HTMLInputElement>(null)
   return (
     <span className="inline-flex" style={{ width }}>
       <input
+        ref={inputRef}
         className="eu-textbox w-full rounded-r-none"
         placeholder={placeholder}
         onKeyDown={(e) => {
@@ -718,10 +773,7 @@ export function SearchBox({
       <span
         className="inline-flex items-center justify-center border border-l-0 border-[var(--eu-border)] rounded rounded-l-none px-1 cursor-pointer hover:bg-[var(--eu-hover)]"
         style={{ width: 20 }}
-        onClick={(e) => {
-          const input = (e.currentTarget.previousSibling as HTMLInputElement)
-          onSearch(input.value)
-        }}
+        onClick={() => onSearch(inputRef.current?.value ?? '')}
         title={placeholder}
       >
         <Icon name="tr-icon-search" />

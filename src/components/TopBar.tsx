@@ -7,7 +7,7 @@ import { openDialog, showToast, uiStore, useUi } from '../lib/ui'
 import { useSession, useStats, useTorrents, useRpcMutation, useFreeSpace, queryKeys } from '../api/queries'
 import { getSnapshot, setSearchResult } from '../lib/torrents'
 import { formatSize } from '../lib/format'
-import type { Torrent } from '../lib/types'
+import { STATUS, type Torrent } from '../lib/types'
 import { asset } from '../lib/asset'
 
 // 主题列表与原版 config.js 一致；黑底主题使用白色 logo
@@ -99,7 +99,7 @@ export function TopBar() {
         <span
           style={{
             display: session.data?.['alt-speed-enabled'] ? 'inline-block' : 'none',
-            background: 'url(/assets/images/alt-speed.ico) no-repeat',
+            background: `url(${asset('assets/images/alt-speed.ico')}) no-repeat`,
             width: 16,
             height: 16,
           }}
@@ -180,9 +180,9 @@ function Toolbar() {
       st.rename = true
       st.queue = true
       const t = single!
-      if (t.status === 0) {
+      if (t.status === STATUS.stopped) {
         st.start = st.recheck = true
-      } else if (t.status === 2 || t.status === 1) {
+      } else if (t.status === STATUS.check || t.status === STATUS.checkwait) {
         // 校验中：全部禁用
       } else {
         st.pause = st.morepeers = true
@@ -291,7 +291,7 @@ function Toolbar() {
       />
       <LinkButton
         icon="tr-icon-speedlimit"
-        title={(lang.toolbar.tip as Record<string, string>)['change-speedlimit'] ?? lang.dialog['torrent-changeSpeedLimit'].title}
+        title={lang.toolbar.tip['change-speedlimit']}
         disabled={!st.changeSpeedLimit}
         onClick={withChecked((ids) => openDialog('torrent-changeSpeedLimit', { ids }))}
       />
@@ -352,12 +352,18 @@ function Toolbar() {
           placeholder={lang.toolbar['search-prompt']}
           onSearch={(v) => {
             const result = setSearchResult(v)
-            if (!v) return
-            if (!result.length) {
-              showToast(lang.system.status.notfinal)
+            if (!v) {
+              // 清空搜索：复位导航选中，避免停留在已清空的搜索结果节点
+              uiStore.set({ searchKey: '', currentNodeId: 'torrent-all' })
               return
             }
-            uiStore.set({ currentNodeId: 'search-result' })
+            if (!result.length) {
+              showToast(lang.system.status.notfinal)
+              uiStore.set({ searchKey: '', currentNodeId: 'torrent-all' })
+              return
+            }
+            // 同步 searchKey，使导航树出现「搜索结果」节点并选中
+            uiStore.set({ searchKey: v, currentNodeId: 'search-result' })
           }}
         />
       </span>

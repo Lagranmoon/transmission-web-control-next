@@ -68,7 +68,7 @@
 			"autoreload-enabled": "启用自动刷新",
 			"tracker-replace": "替换 Tracker",
 			"change-download-dir": "变更数据保存目录",
-      			"change-speedlimit": "变更上传和下载速度",
+			"change-speedlimit": "变更上传和下载速度",
 			"ui-mobile": "切换到移动设备界面",
 			"ui-original": "切换到原版界面",
 			"more-peers": "获取更多Peer",
@@ -308,8 +308,6 @@
 			"newname": "新名称"
 		},
 		"torrent-attribute-add-tracker": {
-			"button-search-best-ip": "精选(IP)",
-			"button-search-all-ip": "全部(IP)",
 			"title": "增加 Tracker",
 			"tip": "每行表示一个Tracker"
 		},
@@ -481,6 +479,7 @@
 		"text-off": "关",
 		"text-how-to-update": "如何更新？",
 		"text-ignore-this-version": "忽略这个版本",
-		"text-json-file-parsing-failed": "JSON文件解析失败！"
+		"text-json-file-parsing-failed": "JSON文件解析失败！",
+		"text-processing": "正在处理 %n 个种子…"
 	}
 }

@@ -1,6 +1,6 @@
 // 移动版界面 — 复刻 index.mobile.html + system.mobile.js
 // 结构：标题栏 / 分类主页 / 种子列表(复选+分页) / 添加种子 / 底部操作栏+状态栏 / 右侧滑出面板
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useLang } from '../i18n'
 import { useConfig, saveConfig } from '../lib/config'
@@ -35,6 +35,12 @@ export function MobilePage() {
   const [dir, setDir] = useState('')
   const [autostart, setAutostart] = useState(true)
   const [addMsg, setAddMsg] = useState('')
+  // session 为异步查询：挂载时数据未返回（data === undefined），初值沿用旧版默认 true；
+  // 数据到达后同步守护进程的 start-added-torrents（依赖为布尔值，仅在实际变化时覆盖，不打断手动勾选）
+  const sessionAutostart = session.data?.['start-added-torrents']
+  useEffect(() => {
+    if (sessionAutostart !== undefined) setAutostart(!!sessionAutostart)
+  }, [sessionAutostart])
 
   const counts = useMemo(() => {
     const s = snap.status
@@ -75,7 +81,10 @@ export function MobilePage() {
   }, [snap, category])
 
   const pages = Math.max(1, Math.ceil(torrents.length / PAGE_SIZE))
-  const pageRows = torrents.slice((pageNum - 1) * PAGE_SIZE, pageNum * PAGE_SIZE)
+  // 页码收敛：列表变少时夹回 [1, pages]（与原版 gotoPage 的钳制一致），分页控件与切片共用同一页码
+  const safePage = Math.min(Math.max(pageNum, 1), pages)
+  if (safePage !== pageNum) setPageNum(safePage)
+  const pageRows = torrents.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
   const showList = (target: string) => {
     setCategory(target)
@@ -98,15 +107,20 @@ export function MobilePage() {
       return
     }
     let i = 0
-    for (const u of list) {
-      i++
-      setAddMsg(`${lang.system.status.queue}${i}/${list.length}`)
-      const url = /^[0-9a-f]{40}$/i.test(u) ? 'magnet:?xt=urn:btih:' + u : u
-      await rpc('torrent-add', {
-        filename: url,
-        paused: !autostart,
-        'download-dir': dir || (session.data?.['download-dir'] as string) || '',
-      })
+    try {
+      for (const u of list) {
+        i++
+        setAddMsg(`${lang.system.status.queue}${i}/${list.length}`)
+        const url = /^[0-9a-f]{40}$/i.test(u) ? 'magnet:?xt=urn:btih:' + u : u
+        await rpc('torrent-add', {
+          filename: url,
+          paused: !autostart,
+          'download-dir': dir || (session.data?.['download-dir'] as string) || '',
+        })
+      }
+    } catch (e) {
+      setAddMsg(String((e as Error).message || e))
+      return
     }
     setUrls('')
     setAddMsg(lang.system.status.queuefinish)
@@ -135,13 +149,13 @@ export function MobilePage() {
         className="flex items-center gap-2 px-2 text-white select-none"
         style={{ height: 44, background: 'linear-gradient(#5c9ccc,#396b9e)', flex: 'none' }}
       >
-        {page === 'home' ? (
-          <button className="m-btn" onClick={() => setPanelOpen(true)}>☰</button>
-        ) : (
-          <button className="m-btn" onClick={() => setPage('home')}>⌂</button>
-        )}
+        <button className="m-btn" onClick={() => setPage('home')}>⌂</button>
         <div className="flex-1 text-center font-bold truncate" style={{ fontSize: 14 }}>
-          {page === 'torrent-list' ? (lang.tree as unknown as Record<string, string>)[category] : page === 'add-torrent' ? lang.toolbar['add-torrent'] : 'Transmission Web Control'}
+          {page === 'torrent-list'
+            ? categories.find((c) => c.key === category)?.label ?? 'Transmission Web Control'
+            : page === 'add-torrent'
+              ? lang.toolbar['add-torrent']
+              : 'Transmission Web Control'}
         </div>
         <button className="m-btn" onClick={() => setPanelOpen(true)}>☰</button>
       </div>
@@ -168,9 +182,9 @@ export function MobilePage() {
             {/* 分页条 */}
             {pages > 1 && (
               <div className="flex items-center justify-center gap-4 py-1 bg-[#e9e9e9] text-sm">
-                <button disabled={pageNum <= 1} className="m-btn" onClick={() => setPageNum((p) => p - 1)}>‹</button>
-                <span>{pageNum}/{pages}</span>
-                <button disabled={pageNum >= pages} className="m-btn" onClick={() => setPageNum((p) => p + 1)}>›</button>
+                <button disabled={safePage <= 1} className="m-btn" onClick={() => setPageNum((p) => p - 1)}>‹</button>
+                <span>{safePage}/{pages}</span>
+                <button disabled={safePage >= pages} className="m-btn" onClick={() => setPageNum((p) => p + 1)}>›</button>
               </div>
             )}
             <ul className="m-list">
@@ -251,7 +265,14 @@ export function MobilePage() {
             </button>
             <button className="m-button" onClick={() => doIds('torrent-start')}>{lang.toolbar.start}</button>
             <button className="m-button" onClick={() => doIds('torrent-stop')}>{lang.toolbar.pause}</button>
-            <button className="m-button" onClick={() => doIds('torrent-verify')}>{lang.toolbar.recheck}</button>
+            <button
+              className="m-button"
+              onClick={() => {
+                if (window.confirm(lang.toolbar.tip['recheck-confirm'])) doIds('torrent-verify')
+              }}
+            >
+              {lang.toolbar.recheck}
+            </button>
             <button className="m-button" style={{ color: '#c00' }} onClick={() => setConfirmRemove(true)}>{lang.toolbar.remove}</button>
           </div>
         )}
@@ -311,7 +332,7 @@ export function MobilePage() {
             </div>
             <div className="px-3 py-2 bg-[#ececec] text-gray-600">UI</div>
             <ul className="m-list">
-              <li><a onClick={() => (window.location.hash = '#/')}>🖥 {lang.toolbar['ui-computer']}</a></li>
+              <li><a onClick={() => (window.location.href = '?devicetype=computer#/')}>🖥 {lang.toolbar['ui-computer']}</a></li>
               <li><a onClick={() => (window.location.href = 'index.original.html')}>⚙ {lang.toolbar['ui-original']}</a></li>
             </ul>
           </div>

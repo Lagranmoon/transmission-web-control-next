@@ -184,7 +184,6 @@ let session = {
 let statsTick = 0
 
 function stats(): SessionStats {
-  statsTick++
   const down = torrents.reduce((s, x) => s + x.rateDownload, 0)
   const up = torrents.reduce((s, x) => s + x.rateUpload, 0)
   return {
@@ -210,17 +209,20 @@ function stats(): SessionStats {
   }
 }
 
-export function getMockState() {
-  // 每次 session-stats 拉取时推进模拟进度
-  for (const x of torrents) {
-    if (x.status === 4 && x.leftUntilDone > 0) {
-      const advance = x.rateDownload * 5
-      x.leftUntilDone = Math.max(0, x.leftUntilDone - advance)
-      x.percentDone = Math.min(1, (x.totalSize - x.leftUntilDone) / x.totalSize)
-      x.rateDownload = Math.max(100_000, x.rateDownload + ((statsTick % 5) - 2) * 300_000)
-      if (x.leftUntilDone === 0) {
-        x.status = 6
-        x.doneDate = Math.floor(Date.now() / 1000)
+export function getMockState(method: string) {
+  // 每次 session-stats 拉取时推进模拟进度（真实轮询每个周期恰好拉一次 session-stats）
+  if (method === 'session-stats') {
+    statsTick++
+    for (const x of torrents) {
+      if (x.status === 4 && x.leftUntilDone > 0) {
+        const advance = x.rateDownload * 5
+        x.leftUntilDone = Math.max(0, x.leftUntilDone - advance)
+        x.percentDone = Math.min(1, (x.totalSize - x.leftUntilDone) / x.totalSize)
+        x.rateDownload = Math.max(100_000, x.rateDownload + ((statsTick % 5) - 2) * 300_000)
+        if (x.leftUntilDone === 0) {
+          x.status = 6
+          x.doneDate = Math.floor(Date.now() / 1000)
+        }
       }
     }
   }
@@ -254,7 +256,7 @@ export async function mockMutate(method: string, args: Record<string, any>): Pro
       } else if (args.metainfo) {
         name = '新增种子 ' + Date.now()
       }
-      const id = Math.max(...torrents.map((x) => x.id)) + 1
+      const id = torrents.reduce((m, x) => Math.max(m, x.id), 0) + 1
       const t = makeTorrent(torrents.length)
       t.id = id
       t.name = name

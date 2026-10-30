@@ -4,19 +4,11 @@ import { Tree, type TreeNodeData } from './Tree'
 import { useLang } from '../i18n'
 import { useConfig } from '../lib/config'
 import { useStats, useTorrents } from '../api/queries'
-import { getSnapshot } from '../lib/torrents'
+import { getSnapshot, isInited } from '../lib/torrents'
 import { STATUS } from '../lib/types'
-import { formatSize, getTotalTime } from '../lib/format'
+import { formatSize, getTotalTime, validTreeKey } from '../lib/format'
 import { getTimeUnits } from '../i18n'
 import { uiStore, useUi } from '../lib/ui'
-
-function btoaSafe(s: string): string {
-  try {
-    return btoa(unescape(encodeURIComponent(s))).replace(/[+|\/|=]/g, '0')
-  } catch {
-    return s.replace(/[^a-zA-Z0-9]/g, '0')
-  }
-}
 
 function moreInfos(count: number, size?: number): ReactNode {
   return (
@@ -49,24 +41,21 @@ export function NavPanel() {
       { id: 'error', text: <>{t.error}{moreInfos(snap.error.length)}</>, iconCls: 'tr-icon-errors' },
       { id: 'warning', text: <>{t.warning}{moreInfos(snap.warning.length)}</>, iconCls: 'tr-icon-warning' },
     ]
-    // 等待中的子节点（与原逻辑一致）
-    const idx = statusChildren.findIndex((n) => n.id === 'downloading')
-    if (s[STATUS.downloadwait]?.length) {
-      statusChildren[idx].children = [
-        { id: 'downloadwait', text: <>{t.wait}{moreInfos(s[STATUS.downloadwait].length)}</>, iconCls: 'tr-icon-wait' },
-      ]
-    }
-    const sidx = statusChildren.findIndex((n) => n.id === 'sending')
-    if (s[STATUS.seedwait]?.length) {
-      statusChildren[sidx].children = [
-        { id: 'seedwait', text: <>{t.wait}{moreInfos(s[STATUS.seedwait].length)}</>, iconCls: 'tr-icon-wait' },
-      ]
-    }
-    const cidx = statusChildren.findIndex((n) => n.id === 'check')
-    if (s[STATUS.checkwait]?.length) {
-      statusChildren[cidx].children = [
-        { id: 'checkwait', text: <>{t.wait}{moreInfos(s[STATUS.checkwait].length)}</>, iconCls: 'tr-icon-wait' },
-      ]
+    // 等待中的子节点（与原逻辑一致）：[wait 状态, 父节点 id, 子节点 id]
+    const waitGroups: [waitStatus: number, parentId: string, childId: string][] = [
+      [STATUS.downloadwait, 'downloading', 'downloadwait'],
+      [STATUS.seedwait, 'sending', 'seedwait'],
+      [STATUS.checkwait, 'check', 'checkwait'],
+    ]
+    for (const [waitStatus, parentId, childId] of waitGroups) {
+      const waiting = s[waitStatus]
+      if (!waiting?.length) continue
+      const parent = statusChildren.find((n) => n.id === parentId)
+      if (parent) {
+        parent.children = [
+          { id: childId, text: <>{t.wait}{moreInfos(waiting.length)}</>, iconCls: 'tr-icon-wait' },
+        ]
+      }
     }
 
     const result: TreeNodeData[] = [
@@ -110,9 +99,12 @@ export function NavPanel() {
         id: 'servers',
         text: t.servers,
         iconCls: 'tr-icon-servers',
-        children: serverChildren.length
-          ? serverChildren
-          : [{ id: 'servers-loading', text: t.status.loading, iconCls: 'tree-loading' }],
+        // 区分「尚无数据」与「确实无 tracker」：仅首次数据未到时显示占位；
+        // 数据已就绪但无 tracker（磁力链无 tracker / showBTServers=false）时渲染空
+        // children，对齐原版每次刷新 removeTreeNode("servers-loading") 的效果
+        children: !isInited()
+          ? [{ id: 'servers-loading', text: t.status.loading, iconCls: 'tree-loading' }]
+          : serverChildren,
       })
     }
 
@@ -121,7 +113,7 @@ export function NavPanel() {
         id: 'folders',
         text: t.folders,
         iconCls: 'tr-icon-folder',
-        children: buildFolderNodes(snap, lang.tree.folders as string),
+        children: buildFolderNodes(snap),
       })
     }
 
@@ -141,7 +133,7 @@ export function NavPanel() {
         text: t.statistics.title,
         iconCls: 'tr-icon-shuju',
         children: [
-          { id: 'cumulative-stats', text: t.statistics.cumulative, iconCls: 'tr-icon-folder', children: statItems(cs, units).map((x) => ({ ...x, id: x.id })) },
+          { id: 'cumulative-stats', text: t.statistics.cumulative, iconCls: 'tr-icon-folder', children: statItems(cs, units) },
           { id: 'current-stats', text: t.statistics.current, iconCls: 'tr-icon-folder', children: statItems(ks, units).map((x) => ({ ...x, id: 'current-' + x.id })) },
         ],
       })
@@ -166,13 +158,11 @@ export function NavPanel() {
   }, [lang, config, snap, stats.data, ui.searchKey])
 
   // 目录树节点（复用 folders 聚合，按 nodeid 前缀构成层级）
-  function buildFolderNodes(snap: ReturnType<typeof getSnapshot>, _title: string): TreeNodeData[] {
+  function buildFolderNodes(snap: ReturnType<typeof getSnapshot>): TreeNodeData[] {
     const entries = Object.values(snap.folders)
-    const byId = new Map(entries.map((e) => [e.nodeid, e]))
     const roots: TreeNodeData[] = []
     const nodeMap = new Map<string, TreeNodeData>()
     for (const entry of entries) {
-      const segs = entry.nodeid.replace(/^folders-/, '')
       // folders key 由每段 base64 拼接而成，无法直接拆分；
       // 用 path 全路径 + 目录层级逐段累积 key（与原 appendFolder 一致）
       const pathSegs = entry.path.split('/')
@@ -183,8 +173,8 @@ export function NavPanel() {
         const seg = pathSegs[i]
         if (!seg) continue
         pathAcc = pathAcc ? pathAcc + '/' + seg : seg
-        key += btoaSafe(seg)
-        const info = byId.get(key) ?? snap.folders[key]
+        key += validTreeKey(seg)
+        const info = snap.folders[key]
         let node = nodeMap.get(key)
         if (!node) {
           node = {

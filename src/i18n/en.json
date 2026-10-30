@@ -68,6 +68,7 @@
 			"autoreload-enabled": "Click to enable auto reload",
 			"tracker-replace": "Replace trackers",
 			"change-download-dir": "Change download location",
+			"change-speedlimit": "Change download and upload speed",
 			"ui-mobile": "Mobile UI",
 			"ui-original": "Original UI",
 			"more-peers": "Ask tracker for more peers",
@@ -140,7 +141,6 @@
 			"torrent-url": "Torrent URL:",
 			"tip-torrent-url": "Tip: Please add multiple content with an 'Enter' key press to separate",
 			"autostart": "Auto Start:",
-			"tip-autostart": "",
 			"set-default-download-dir": "Set as default directory",
 			"upload-file": "Torrent file(s):",
 			"nosource": "No torrent file or URL.",
@@ -479,6 +479,7 @@
 		"text-off": "OFF",
 		"text-how-to-update": "How to update?",
 		"text-ignore-this-version": "Ignore this version",
-		"text-json-file-parsing-failed": "JSON file parsing failed!"
+		"text-json-file-parsing-failed": "JSON file parsing failed!",
+		"text-processing": "Processing %n torrent(s)…"
 	}
 }

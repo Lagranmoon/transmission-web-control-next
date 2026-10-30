@@ -5,9 +5,11 @@ import { useLang } from '../i18n'
 import { closeDialog, showProgress, hideProgress, useUi } from '../lib/ui'
 import { useSession, useRpcMutation, useTorrents } from '../api/queries'
 import { getSnapshot } from '../lib/torrents'
-import { getFolderDictionary, useConfig, saveConfig } from '../lib/config'
+import { configStore, getFolderDictionary, useConfig, saveConfig } from '../lib/config'
 import { rpc, addTorrentFile } from '../lib/rpc'
-import { getGrayLevel, uniq } from '../lib/format'
+import { uniq } from '../lib/format'
+import { LabelPicker } from '../components/LabelPicker'
+import { asset } from '../lib/asset'
 import { SystemConfigDialog } from './SystemConfigDialog'
 import {
   ExportConfigDialog,
@@ -88,10 +90,11 @@ export function AddTorrentDialog({ dialogId, files }: { dialogId: string; files?
     return list.map((d) => ({ value: d, text: d }))
   }, [snap.downloadDirs, defaultDir])
 
-  /** 添加成功后为种子保存所选标签 */
+  /** 添加成功后为种子保存所选标签（每次从 store 现取 labelMaps，避免批量添加时前序写入被闭包旧值覆盖） */
   const saveLabelsFor = (hash: string) => {
-    if (!config.nav.labels || !selectedLabels.size) return
-    const maps = { ...config.labelMaps, [hash]: Array.from(selectedLabels) }
+    const cfg = configStore.get()
+    if (!cfg.nav.labels || !selectedLabels.size) return
+    const maps = { ...cfg.labelMaps, [hash]: Array.from(selectedLabels) }
     saveConfig({ labelMaps: maps })
   }
 
@@ -221,48 +224,7 @@ export function AddTorrentDialog({ dialogId, files }: { dialogId: string; files?
         </table>
         {config.nav.labels && (
           <div style={{ borderTop: '1px dotted #ccc', marginTop: 4, paddingTop: 4 }}>
-            <div className="flex" style={{ height: 110 }}>
-              <div style={{ width: '50%' }}>
-                <div>{lang.dialog['torrent-setLabels'].available}</div>
-                <div className="pt-1">
-                  {config.labels.map((lb, i) =>
-                    selectedLabels.has(i) ? null : (
-                      <a
-                        key={i}
-                        className="user-label-big"
-                        style={{ backgroundColor: lb.color, color: getGrayLevel(lb.color) > 0.5 ? '#000' : '#fff' }}
-                        onClick={() => setSelectedLabels(new Set([...selectedLabels, i]))}
-                      >
-                        {lb.name}
-                      </a>
-                    ),
-                  )}
-                </div>
-              </div>
-              <div style={{ width: '50%', borderLeft: '1px dotted #ccc', paddingLeft: 5 }}>
-                <div>{lang.dialog['torrent-setLabels'].selected}</div>
-                <div className="pt-1">
-                  {[...selectedLabels].map((i) => {
-                    const lb = config.labels[i]
-                    if (!lb) return null
-                    return (
-                      <a
-                        key={i}
-                        className="user-label-big"
-                        style={{ backgroundColor: lb.color, color: getGrayLevel(lb.color) > 0.5 ? '#000' : '#fff' }}
-                        onClick={() => {
-                          const next = new Set(selectedLabels)
-                          next.delete(i)
-                          setSelectedLabels(next)
-                        }}
-                      >
-                        {lb.name}
-                      </a>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
+            <LabelPicker selected={selectedLabels} onChange={setSelectedLabels} style={{ height: 110 }} />
           </div>
         )}
       </div>
@@ -289,7 +251,7 @@ export function RemoveConfirmDialog({ dialogId, ids }: { dialogId: string; ids: 
             loading={mutation.isPending}
             onClick={() => {
               // 批量删除期间在右下角显示进度浮层（onSettled 清除）
-              showProgress(`正在处理 ${ids.length} 个种子…`)
+              showProgress(lang.public['text-processing'].replace('%n', String(ids.length)))
               mutation.mutate(
                 { method: 'torrent-remove', args: { ids, 'delete-local-data': removeData } },
                 {
@@ -405,7 +367,7 @@ export function ChangeDownloadDirDialog({ dialogId, ids }: { dialogId: string; i
   const [dir, setDir] = useState(torrent?.downloadDir ?? '')
   const [moveData, setMoveData] = useState(true)
   const [recheck, setRecheck] = useState(false)
-  const [progress, setProgress] = useState('')
+  const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
   const dirOptions = useMemo(() => {
@@ -428,16 +390,21 @@ export function ChangeDownloadDirDialog({ dialogId, ids }: { dialogId: string; i
     // torrent-set-location 原生支持 ids 数组：一次请求批量迁移，
     // 避免慢 API 下逐条串行导致的长时间等待
     const moveIds = ids.filter((id) => snap.all[id] && snap.all[id].downloadDir !== dir)
-    setProgress(`-> ${moveIds.length}`)
     if (moveIds.length) {
+      setBusy(true)
       // 批量迁移期间在右下角显示进度浮层
-      showProgress(`正在处理 ${moveIds.length} 个种子…`)
+      showProgress(lang.public['text-processing'].replace('%n', String(moveIds.length)))
       try {
         await rpc('torrent-set-location', { ids: moveIds, location: dir, move: moveData })
         if (recheck) {
           await rpc('torrent-verify', { ids: moveIds })
         }
+      } catch (e) {
+        // 失败时保留对话框并展示错误，成功路径才关闭
+        setError(String((e as Error).message || e))
+        return
       } finally {
+        setBusy(false)
         hideProgress()
       }
     }
@@ -455,8 +422,7 @@ export function ChangeDownloadDirDialog({ dialogId, ids }: { dialogId: string; i
       footer={
         <>
           {error && <span className="mr-2 text-red-600">{error}</span>}
-          <span className="mr-2">{progress}</span>
-          <LinkButton icon="icon-ok" onClick={ok}>
+          <LinkButton icon="icon-ok" onClick={ok} loading={busy}>
             {lang.dialog.public['button-ok']}
           </LinkButton>
           <LinkButton icon="icon-cancel" onClick={() => closeDialog(dialogId)}>
@@ -509,7 +475,7 @@ export function ChangeSpeedLimitDialog({ dialogId, ids }: { dialogId: string; id
   useTorrents()
   const snap = getSnapshot()
   const mutation = useRpcMutation()
-  const torrent = snap.all[ids[0]] as (typeof snap.all)[number] & Record<string, unknown>
+  const torrent = snap.all[ids[0]]
   const L = lang.dialog['torrent-changeSpeedLimit']
   const [downloadLimited, setDownloadLimited] = useState(!!torrent?.downloadLimited)
   const [downloadLimit, setDownloadLimit] = useState(torrent?.downloadLimit ?? 0)
@@ -611,12 +577,10 @@ export function AddTrackerDialog({ dialogId, ids }: { dialogId: string; ids: num
             onClick={() => {
               const list = urls.split('\n').map((s) => s.trim()).filter(Boolean)
               if (!list.length) return
-              const existing: unknown[] = []
               mutation.mutate(
                 { method: 'torrent-set', args: { ids, trackerAdd: list } },
                 { onSuccess: () => closeDialog(dialogId) },
               )
-              void existing
             }}
           >
             {lang.dialog.public['button-ok']}
@@ -670,13 +634,17 @@ export function ReplaceTrackerDialog({ dialogId }: { dialogId: string }) {
     }
     let done = 0
     // 批量替换期间在右下角显示进度浮层（count 为命中的种子数；无命中时不显示）
-    if (count > 0) showProgress(`正在处理 ${count} 个种子…`)
+    if (count > 0) showProgress(lang.public['text-processing'].replace('%n', String(count)))
     try {
       for (const [trackerId, torrentIds] of grouped) {
         done++
         setMessage(`-> [${done}/${grouped.size}]`)
         await rpc('torrent-set', { ids: torrentIds, trackerReplace: [trackerId, newUrl] })
       }
+    } catch (e) {
+      // 失败时展示错误并保留对话框，成功路径才关闭
+      setMessage(String((e as Error).message || e))
+      return
     } finally {
       setBusy(false)
       hideProgress()
@@ -738,7 +706,7 @@ export function AboutDialog({ dialogId }: { dialogId: string }) {
   return (
     <Dialog title={lang.toolbar.about} width={420} height={340} onClose={() => closeDialog(dialogId)}>
       <div className="text-center leading-6">
-        <img src="/assets/images/logo.png" width={52} height={52} className="mx-auto" alt="logo" />
+        <img src={asset('assets/images/logo.png')} width={52} height={52} className="mx-auto" alt="logo" />
         <div className="mt-2 text-[15px] font-medium text-[var(--eu-title)]">Transmission Web Control Next</div>
         <div>v{__APP_VERSION__}</div>
         <hr className="my-3" />
@@ -768,12 +736,8 @@ export function SetLabelsDialog({ dialogId, hashs }: { dialogId: string; hashs: 
   const { lang } = useLang()
   const config = useConfig()
   const L = lang.dialog['torrent-setLabels']
-  const [selected, setSelected] = useState<Set<number>>(new Set())
-  // 初始化：取第一个种子的现有标签
-  useMemo(() => {
-    const first = config.labelMaps[hashs[0]]
-    if (first) setSelected(new Set(first))
-  }, [hashs])
+  // 初始化：取第一个种子的现有标签（惰性初始化，避免渲染期 setState）
+  const [selected, setSelected] = useState<Set<number>>(() => new Set(config.labelMaps[hashs[0]] ?? []))
   return (
     <Dialog
       title={L.title}
@@ -803,48 +767,7 @@ export function SetLabelsDialog({ dialogId, hashs }: { dialogId: string; hashs: 
         </>
       }
     >
-      <div className="flex h-full">
-        <div className="w-1/2">
-          <div>{L.available}</div>
-          <div className="p-1">
-            {config.labels.map((lb, i) =>
-              selected.has(i) ? null : (
-                <a
-                  key={i}
-                  className="user-label-big"
-                  style={{ backgroundColor: lb.color, color: getGrayLevel(lb.color) > 0.5 ? '#000' : '#fff' }}
-                  onClick={() => setSelected(new Set([...selected, i]))}
-                >
-                  {lb.name}
-                </a>
-              ),
-            )}
-          </div>
-        </div>
-        <div className="w-1/2 border-l border-dotted border-[#ccc] pl-1">
-          <div>{L.selected}</div>
-          <div className="p-1">
-            {[...selected].map((i) => {
-              const lb = config.labels[i]
-              if (!lb) return null
-              return (
-                <a
-                  key={i}
-                  className="user-label-big"
-                  style={{ backgroundColor: lb.color, color: getGrayLevel(lb.color) > 0.5 ? '#000' : '#fff' }}
-                  onClick={() => {
-                    const next = new Set(selected)
-                    next.delete(i)
-                    setSelected(next)
-                  }}
-                >
-                  {lb.name}
-                </a>
-              )
-            })}
-          </div>
-        </div>
-      </div>
+      <LabelPicker selected={selected} onChange={setSelected} style={{ height: '100%' }} />
     </Dialog>
   )
 }

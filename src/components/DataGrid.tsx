@@ -48,9 +48,25 @@ export function makeColumnMenuItems<T extends Record<string, unknown>>(
     }))
 }
 
-export function useColumnState(initial: GridColumn[], persist?: (cols: GridColumn[]) => void) {
-  const [columns, setColumns] = useState<GridColumn[]>(initial)
-  const update = (next: GridColumn[]) => {
+/** grid-4：列定义签名（字段集合 + 标题，与顺序/宽度/显隐无关）。
+ *  宿主每轮渲染重建等价 columns 数组（如 AttributePanel）时签名不变，不会冲掉本地列宽/显隐/排序调整；
+ *  字段集合或标题真正变化（如切换语言）时才视为 initial 变更 */
+const columnSignature = <T extends Record<string, unknown>>(cols: GridColumn<T>[]) =>
+  cols
+    .map((c) => `${c.field}:${typeof c.title === 'string' ? c.title : ''}`)
+    .sort()
+    .join(',')
+
+export function useColumnState<T extends Record<string, unknown>>(
+  initial: GridColumn<T>[],
+  persist?: (cols: GridColumn<T>[]) => void,
+) {
+  const [columns, setColumns] = useState<GridColumn<T>[]>(initial)
+  // grid-4：感知 initial 变更 —— 签名相同（等价重建）时保留本地 state，签名变化时采用新 initial
+  useEffect(() => {
+    setColumns((prev) => (columnSignature(prev) === columnSignature(initial) ? prev : initial))
+  }, [initial])
+  const update = (next: GridColumn<T>[]) => {
     setColumns(next)
     persist?.(next)
   }
@@ -130,9 +146,18 @@ export function DataGrid<T extends Record<string, unknown>>({
   rowActions?: (row: T) => ReactNode
 }) {
   const { show: showMenu } = useMenu()
-  const visibleCols = useMemo(() => columns.filter((c) => !c.hidden), [columns])
+  // grid-3：宿主未传 onColumnsChange 时（如 AttributePanel 各网格），列宽拖动与表头右键显隐
+  // 退回 useColumnState 本地 state，两个交互不再静默失效；传了回调则仍由宿主全权受控，行为不变
+  const localColumns = useColumnState<T>(columns)
+  const gridColumns = onColumnsChange ? columns : localColumns.columns
+  const changeColumns = (next: GridColumn<T>[]) => {
+    if (onColumnsChange) onColumnsChange(next)
+    else localColumns.update(next)
+  }
+  const visibleCols = useMemo(() => gridColumns.filter((c) => !c.hidden), [gridColumns])
   const [resizeW, setResizeW] = useState<{ field: string; w: number } | null>(null)
-  const [dragOver, setDragOver] = useState<string | null>(null)
+  // grid-2：拖拽指示按方向区分 —— pos 记录实际落点在目标列之前/之后，与 dropColumn 的 splice 一致
+  const [dragOver, setDragOver] = useState<{ field: string; pos: 'before' | 'after' } | null>(null)
   const dragField = useRef<string | null>(null)
   const lastCheckedRef = useRef<number>(-1)
 
@@ -142,28 +167,37 @@ export function DataGrid<T extends Record<string, unknown>>({
   const [viewportH, setViewportH] = useState(600)
   const [headerH, setHeaderH] = useState(0)
 
-  // 通过 ref 转发最新的回调，保证传给 memo 行组件的函数引用稳定
-  const handlersRef = useRef({ onSelect, onCheck, onRowContextMenu, rowActions, toggleRowCheck: ((_i: number, _r: T, _e: { shiftKey: boolean }) => {}) as (index: number, row: T, e: { shiftKey: boolean }) => void })
+  // 通过 ref 转发最新的回调，保证传给 memo 行组件的函数引用稳定。
+  // grid-6：初值改为明确可空类型（渲染期下方统一赋值，调用点经 ?. 保证安全），去掉 no-op 函数强转占位；
+  // onCheck 不入 ref —— 勾选逻辑直接用 prop 闭包（toggleRowCheck/checkAllPage），ref 里从未被读取
+  const handlersRef = useRef<{
+    onSelect?: (row: T, key: string | number) => void
+    onRowContextMenu?: (e: React.MouseEvent, row: T, index: number) => void
+    rowActions?: (row: T) => ReactNode
+    toggleRowCheck: (index: number, row: T, e: { shiftKey: boolean }) => void
+  } | null>(null)
   const stableSelect = useCallback((row: T, key: string | number) => {
-    handlersRef.current.onSelect?.(row, key)
+    handlersRef.current?.onSelect?.(row, key)
   }, [])
   const stableCheck = useCallback((index: number, row: T, e: React.MouseEvent) => {
-    handlersRef.current.toggleRowCheck(index, row, e)
+    handlersRef.current?.toggleRowCheck(index, row, e)
   }, [])
   const stableContext = useCallback((e: React.MouseEvent, row: T, index: number) => {
-    handlersRef.current.onRowContextMenu?.(e, row, index)
+    handlersRef.current?.onRowContextMenu?.(e, row, index)
   }, [])
   // C1 行内快捷操作：稳定引用交给 memo 行组件，内部经 ref 取最新实现
-  const stableRowActions = useCallback((row: T) => handlersRef.current.rowActions?.(row) ?? null, [])
+  const stableRowActions = useCallback((row: T) => handlersRef.current?.rowActions?.(row) ?? null, [])
 
   const keyOf = (row: T) => row[keyField] as string | number
   const checked = checkedKeys ?? new Set<string | number>()
 
+  // grid-1 坐标系统一：全局行号（含分页偏移，供行号显示与右键菜单）与页内索引（供勾选连选）
+  // 的换算全部收在组件内部，不改宿主传参 —— toggleRowCheck 入口收全局行号，先减偏移还原页内索引
+  const pageOffset = pagination ? (page - 1) * pageSize : 0
   const pageRows = useMemo(() => {
     if (!pagination) return rows
-    const start = (page - 1) * pageSize
-    return rows.slice(start, start + pageSize)
-  }, [rows, pagination, page, pageSize])
+    return rows.slice(pageOffset, pageOffset + pageSize)
+  }, [rows, pagination, pageOffset, pageSize])
 
   // C3 窗口化渲染：超过阈值时只渲染可见区间 ± buffer 行，用上下占位 tr 保持滚动条真实。
   // 行 i 的内容位置 = headerH + i*行高（粘性表头在内容流中占位），窗口起算需扣除 headerH，
@@ -223,7 +257,11 @@ export function DataGrid<T extends Record<string, unknown>>({
   }, [selectedKey])
 
   // shift 连选（键盘空格勾选传入 {shiftKey:false}，与鼠标路径共用同一实现）
-  const toggleRowCheck = (index: number, row: T, e: { shiftKey: boolean }) => {    const next = new Set(checked)
+  // grid-1：入口统一收全局行号（鼠标路径由 GridRow 原样传出、空格路径补上分页偏移），
+  // 换算回页内索引后再走 shift 区间循环；lastCheckedRef 只存页内坐标，鼠标/键盘两套坐标不再互串
+  const toggleRowCheck = (globalIndex: number, row: T, e: { shiftKey: boolean }) => {
+    const index = globalIndex - pageOffset
+    const next = new Set(checked)
     const key = keyOf(row)
     const willCheck = !next.has(key)
     if (e.shiftKey && lastCheckedRef.current >= 0 && lastCheckedRef.current !== index) {
@@ -242,7 +280,7 @@ export function DataGrid<T extends Record<string, unknown>>({
     onCheck?.(next)
   }
   // 每次渲染刷新回调引用（memo 行组件通过 stable 包装调用最新实现）
-  handlersRef.current = { onSelect, onCheck, onRowContextMenu, rowActions, toggleRowCheck }
+  handlersRef.current = { onSelect, onRowContextMenu, rowActions, toggleRowCheck }
 
   const checkAllPage = (want: boolean) => {
     const next = new Set(checked)
@@ -273,7 +311,8 @@ export function DataGrid<T extends Record<string, unknown>>({
       const idx = pageRows.findIndex((r) => keyOf(r) === selectedKey)
       if (idx >= 0) {
         e.preventDefault()
-        toggleRowCheck(idx, pageRows[idx], { shiftKey: false })
+        // grid-1：空格路径与鼠标路径统一传全局行号（入口再换算回页内索引）
+        toggleRowCheck(pageOffset + idx, pageRows[idx], { shiftKey: false })
       }
     } else if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
       e.preventDefault()
@@ -289,7 +328,7 @@ export function DataGrid<T extends Record<string, unknown>>({
   const startResize = (field: string, e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    const col = columns.find((c) => c.field === field)
+    const col = gridColumns.find((c) => c.field === field)
     const startX = e.clientX
     const startW = col?.width ?? 80
     let finalW = startW
@@ -301,24 +340,24 @@ export function DataGrid<T extends Record<string, unknown>>({
       window.removeEventListener('mousemove', moveHandler)
       window.removeEventListener('mouseup', up)
       setResizeW(null)
-      onColumnsChange?.(columns.map((c) => (c.field === field ? { ...c, width: finalW } : c)))
+      changeColumns(gridColumns.map((c) => (c.field === field ? { ...c, width: finalW } : c)))
     }
     window.addEventListener('mousemove', moveHandler)
     window.addEventListener('mouseup', up)
   }
 
-  // 列拖动排序：将 dragField 移到目标列之前
+  // 列拖动排序：fromIdx<toIdx 时 dragField 落在目标列之后，否则落在目标列之前（与拖拽指示方向一致）
   const dropColumn = (targetField: string) => {
     const from = dragField.current
     dragField.current = null
     setDragOver(null)
     if (!from || from === targetField) return
-    const order = columns.map((c) => c.field)
+    const order = gridColumns.map((c) => c.field)
     const fromIdx = order.indexOf(from)
     const toIdx = order.indexOf(targetField)
     if (fromIdx === -1 || toIdx === -1) return
     order.splice(toIdx, 0, order.splice(fromIdx, 1)[0])
-    onColumnsChange?.(order.map((f) => columns.find((c) => c.field === f)!))
+    changeColumns(order.map((f) => gridColumns.find((c) => c.field === f)!))
   }
 
   const colWidth = (field: string, fallback: number) =>
@@ -359,7 +398,9 @@ export function DataGrid<T extends Record<string, unknown>>({
                 return (
                   <th
                     key={col.field}
-                    className={`datagrid-head-cell ${dragOver === col.field ? 'drop-over-before' : ''}`}
+                    className={`datagrid-head-cell ${
+                      dragOver && dragOver.field === col.field ? `drop-over-${dragOver.pos}` : ''
+                    }`}
                     style={{ width: w }}
                     draggable={draggable}
                     onDragStart={(e) => {
@@ -370,9 +411,14 @@ export function DataGrid<T extends Record<string, unknown>>({
                       if (!draggable || !dragField.current || dragField.current === col.field) return
                       e.preventDefault()
                       e.dataTransfer.dropEffect = 'move'
-                      setDragOver(col.field)
+                      // grid-2：指示方向与 dropColumn 的 splice 落点一致 ——
+                      // 拖动列在目标列之前（fromIdx<toIdx）时实际落在目标之后，反之落在目标之前
+                      const order = gridColumns.map((c) => c.field)
+                      const fromIdx = order.indexOf(dragField.current)
+                      const toIdx = order.indexOf(col.field)
+                      setDragOver({ field: col.field, pos: fromIdx < toIdx ? 'after' : 'before' })
                     }}
-                    onDragLeave={() => setDragOver((f) => (f === col.field ? null : f))}
+                    onDragLeave={() => setDragOver((f) => (f?.field === col.field ? null : f))}
                     onDrop={(e) => {
                       e.preventDefault()
                       dropColumn(col.field)
@@ -392,7 +438,7 @@ export function DataGrid<T extends Record<string, unknown>>({
                       onContextMenu={(e) => {
                         e.preventDefault()
                         // 列显隐菜单：与列表头「列设置」按钮共用 makeColumnMenuItems
-                        showMenu(makeColumnMenuItems(columns, onColumnsChange), e.clientX, e.clientY)
+                        showMenu(makeColumnMenuItems(gridColumns, changeColumns), e.clientX, e.clientY)
                       }}
                       title={typeof col.title === 'string' ? col.title : undefined}
                     >
@@ -443,7 +489,7 @@ export function DataGrid<T extends Record<string, unknown>>({
                   key={String(keyOf(row))}
                   row={row}
                   rowKey={keyOf(row)}
-                  rowIndex={(pagination ? (page - 1) * pageSize : 0) + i}
+                  rowIndex={pageOffset + i}
                   displayIndex={i}
                   cols={visibleCols}
                   rownumbers={rownumbers}

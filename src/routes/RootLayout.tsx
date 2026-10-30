@@ -48,17 +48,22 @@ export function RootLayout() {
       const startY = e.clientY
       const startNav = navWidth
       const startAttr = attrHeight
+      // 用与 move 相同算式跟踪拖拽中的最新尺寸，up 时持久化终值（避免闭包里的拖前旧值）
+      let lastNav = startNav
+      let lastAttr = startAttr
       const move = (ev: MouseEvent) => {
         if (kind === 'nav') {
-          setNavWidth(Math.min(560, Math.max(160, startNav + ev.clientX - startX)))
+          lastNav = Math.min(560, Math.max(160, startNav + ev.clientX - startX))
+          setNavWidth(lastNav)
         } else {
-          setAttrHeight(Math.min(700, Math.max(80, startAttr - (ev.clientY - startY))))
+          lastAttr = Math.min(700, Math.max(80, startAttr - (ev.clientY - startY)))
+          setAttrHeight(lastAttr)
         }
       }
       const up = () => {
         window.removeEventListener('mousemove', move)
         window.removeEventListener('mouseup', up)
-        uiStore.set(kind === 'nav' ? { navWidth } : { attributeHeight: attrHeight })
+        uiStore.set(kind === 'nav' ? { navWidth: lastNav } : { attributeHeight: lastAttr })
       }
       window.addEventListener('mousemove', move)
       window.addEventListener('mouseup', up)

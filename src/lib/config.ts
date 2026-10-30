@@ -74,13 +74,9 @@ export function saveConfig(patch?: Partial<SystemConfig>) {
 
 /** 用户自定义目录字典（原 dictionary.folders） */
 export function getFolderDictionary(): string[] {
-  const raw = localStorage.getItem(DCTIONARY_SAFE())
+  const raw = localStorage.getItem(DICTIONARY_KEY)
   if (!raw) return []
   return raw.split('\n').filter(Boolean)
-}
-
-function DCTIONARY_SAFE() {
-  return DICTIONARY_KEY
 }
 
 export function setFolderDictionary(dirs: string[]) {
@@ -109,10 +105,21 @@ export interface UserConfig {
 
 const USER_CONFIG_KEY = 'transmission-web-control'
 
+const DEFAULT_USER_CONFIG: UserConfig = {
+  torrentList: { fields: [], sortName: null, sortOrder: 'asc' },
+}
+
 export function loadUserConfig(): UserConfig {
   try {
     const raw = localStorage.getItem(USER_CONFIG_KEY)
-    if (raw) return JSON.parse(raw)
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<UserConfig> | null
+      return {
+        ...DEFAULT_USER_CONFIG,
+        ...parsed,
+        torrentList: { ...DEFAULT_USER_CONFIG.torrentList, ...parsed?.torrentList },
+      }
+    }
   } catch {
     /* ignore */
   }

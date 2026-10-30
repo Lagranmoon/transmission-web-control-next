@@ -7,7 +7,7 @@ import { formatLongTime, formatSize, getTotalTime, getGrayLevel } from './format
 import { getTimeUnits, getLangPack, resolveLang } from '../i18n'
 import { openDialog } from './ui'
 import { STATUS } from './types'
-import { configStore } from './config'
+import { useConfig } from './config'
 
 /** 语言在页面生命周期内固定（切换语言会刷新），模块级取一次即可 */
 const SET_LABELS_TIP =
@@ -16,8 +16,9 @@ const SET_LABELS_TIP =
 
 type Row = Torrent & Record<string, unknown>
 
-/** 进度条（getTorrentProgressBar 移植） */
-export function ProgressBar({ progress, torrent }: { progress: number; torrent: Pick<Torrent, 'status' | 'recheckProgress' | 'warning' | 'error'> }) {
+/** 进度条（getTorrentProgressBar 移植）— progress 为两位小数字符串/数字，恒显示 "50.00%" 形态（原版 parseFloat(v).toFixed(2)） */
+export function ProgressBar({ progress, torrent }: { progress: number | string; torrent: Pick<Torrent, 'status' | 'recheckProgress' | 'warning' | 'error'> }) {
+  const percent = typeof progress === 'number' ? progress.toFixed(2) : progress
   let className = ''
   switch (torrent.status) {
     case STATUS.stopped:
@@ -40,19 +41,19 @@ export function ProgressBar({ progress, torrent }: { progress: number; torrent: 
   if (torrent.error !== 0) className = 'torrent-progress-error'
   if (torrent.status === STATUS.check) {
     const percentCheckText = (torrent.recheckProgress * 100).toFixed(2)
-    const percentCheckView = (progress * torrent.recheckProgress).toFixed(2)
+    const percentCheckView = (Number(percent) * torrent.recheckProgress).toFixed(2)
     return (
-      <div className="torrent-progress" title={`${progress}%`}>
+      <div className="torrent-progress" title={`${percent}%`}>
         <div className="torrent-progress-text" style={{ zIndex: 2 }}>{percentCheckText}%</div>
         <div className="torrent-progress-bar torrent-progress-seed" style={{ width: `${percentCheckView}%`, zIndex: 1, opacity: 0.7 }} />
-        <div className={`torrent-progress-bar ${className}`} style={{ width: `${progress}%` }} />
+        <div className={`torrent-progress-bar ${className}`} style={{ width: `${percent}%` }} />
       </div>
     )
   }
   return (
-    <div className="torrent-progress" title={`${progress}%`}>
-      <div className="torrent-progress-text">{progress}%</div>
-      <div className={`torrent-progress-bar ${className}`} style={{ width: `${progress}%` }} />
+    <div className="torrent-progress" title={`${percent}%`}>
+      <div className="torrent-progress-text">{percent}%</div>
+      <div className={`torrent-progress-bar ${className}`} style={{ width: `${percent}%` }} />
     </div>
   )
 }
@@ -92,9 +93,11 @@ export function NameCell({ torrent, lang }: { torrent: Torrent; lang: Lang }) {
 
 /** 标签列（formetTorrentLabels 移植，含内联快速设置按钮） */
 export function LabelsCell({ torrent }: { torrent: Torrent }) {
-  const labels = configStore.get().labels
+  // 订阅配置：标签编辑保存后 memo 行内的单元格自行重渲染
+  const config = useConfig()
+  const labels = config.labels
   const ids = torrent.labels
-  const navLabels = configStore.get().nav.labels
+  const navLabels = config.nav.labels
   return (
     <>
       {(ids || []).map((id) => {
@@ -149,7 +152,7 @@ export function makeColumns(lang: Lang): GridColumn<Row>[] {
       width: 70,
       align: 'center',
       sortable: true,
-      formatter: (v, row) => <ProgressBar progress={Number((Number(v) * 100).toFixed(2))} torrent={row} />,
+      formatter: (v, row) => <ProgressBar progress={(Number(v) * 100).toFixed(2)} torrent={row} />,
     },
     { field: 'remainingTime', title: f.remainingTime, width: 100, align: 'right', sortable: true, formatter: remainingTime },
     { field: 'uploadRatio', title: f.uploadRatio, width: 60, align: 'right', sortable: true, formatter: (v) => ratio(Number(v)) },
@@ -166,7 +169,6 @@ export function makeColumns(lang: Lang): GridColumn<Row>[] {
         return text
       },
     },
-    { field: 'statusCode', title: '', hidden: true, allowCustom: false },
     { field: 'seederCount', title: f.seederCount, width: 60, align: 'left' },
     { field: 'leecherCount', title: f.leecherCount, width: 60, align: 'left' },
     { field: 'rateDownload', title: f.rateDownload, width: 80, align: 'right', sortable: true, formatter: (v) => formatSize(Number(v), true, 'speed') },

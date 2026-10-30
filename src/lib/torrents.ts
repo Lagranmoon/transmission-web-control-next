@@ -261,11 +261,3 @@ function search(source: Torrent[], key: string): Torrent[] {
   const lower = key.toLowerCase()
   return source.filter((t) => t.name.toLowerCase().includes(lower))
 }
-
-/** 供查询层参考的空快照 */
-export { EMPTY as EMPTY_SNAPSHOT }
-
-/** 状态文本 key（原 lang.torrent['status-text'][status]） */
-export function statusTextKey(status: number): string {
-  return String(status)
-}

@@ -57,7 +57,7 @@ export function TorrentList() {
       const folder = s.folders[id]
       if (!folder) return []
       if (!config.hideSubfolders) return folder.torrents
-      return folder.torrents.filter((t) => t.downloadDir.replace(/[\\|/]/g, '') === id.replace(/^folders-/, ''))
+      return folder.torrents.filter((t) => t.downloadDir.replace(/[\\|/]/g, '') === folder.path.replace(/[\\|/]/g, ''))
     }
     if (id.startsWith('label-')) {
       const idx = Number(id.slice('label-'.length))
@@ -115,6 +115,11 @@ export function TorrentList() {
     uiStore.set({ checkedIds: [] })
   }, [ui.currentNodeId])
 
+  // 当前页超出总页数时回落（如删除末页种子、调大 pageSize 后），避免切片越界导致列表空白
+  useEffect(() => {
+    setPage((p) => Math.min(p, Math.max(1, Math.ceil(rows.length / config.pageSize))))
+  }, [rows.length, config.pageSize])
+
   const persistColumns = (cols: GridColumn<Row>[]) => {
     persistUserConfig({
       torrentList: {
@@ -130,29 +135,33 @@ export function TorrentList() {
 
   const onRowContextMenu = (e: React.MouseEvent, row: Row) => {
     e.preventDefault()
-    // 简单检查模式：右键时仅选中当前行（原 onRowContextMenu 行为）
-    if (config.simpleCheckMode) {
-      uiStore.set({ checkedIds: [row.id] })
-    }
-    const ids = ui.checkedIds.includes(row.id) && !config.simpleCheckMode ? ui.checkedIds : [row.id]
-    if (!ui.checkedIds.includes(row.id) || config.simpleCheckMode) {
+    // 对齐原 onRowContextMenu（system.js:820-829）：simpleCheckMode 或无勾选时才选中当前行，
+    // 已有勾选集（多选）时保留并对其操作，避免覆盖用户的多选
+    const ids = !config.simpleCheckMode && ui.checkedIds.length > 0 ? ui.checkedIds : [row.id]
+    if (ids !== ui.checkedIds) {
       uiStore.set({ checkedIds: ids })
     }
     const t = lang.toolbar
     const singleTorrent = ids.length === 1 ? snap.all[ids[0]] : null
     const isStopped = singleTorrent?.status === STATUS.stopped
+    // 校验中（check/checkwait）：与工具栏一致，暂停/获取更多 Peer 禁用（原项目 system.js:1160-1166）
+    const isChecking = singleTorrent?.status === STATUS.check || singleTorrent?.status === STATUS.checkwait
     const doIds = (method: string, args?: Record<string, unknown>) =>
       mutation.mutate({ method, args: { ids, ...args } }, { onSuccess: () => uiStore.set({ checkedIds: [] }) })
     show(
       [
         { id: 'start', text: t.start, icon: 'tr-icon-start', disabled: !(!singleTorrent || isStopped), onClick: () => doIds('torrent-start') },
-        { id: 'pause', text: t.pause, icon: 'tr-icon-pause', disabled: !(!singleTorrent || !isStopped), onClick: () => doIds('torrent-stop') },
+        { id: 'pause', text: t.pause, icon: 'tr-icon-pause', disabled: !(!singleTorrent || !isStopped) || isChecking, onClick: () => doIds('torrent-stop') },
         '-',
         { id: 'rename', text: t.rename, icon: 'tr-icon-rename', disabled: !singleTorrent, onClick: () => openDialog('torrent-rename', { id: singleTorrent!.id }) },
         { id: 'remove', text: t.remove, icon: 'tr-icon-delete', onClick: () => openDialog('torrent-remove-confirm', { ids }) },
-        { id: 'recheck', text: t.recheck, icon: 'tr-icon-data-check', disabled: !(!singleTorrent || isStopped), onClick: () => doIds('torrent-verify') },
+        { id: 'recheck', text: t.recheck, icon: 'tr-icon-data-check', disabled: !(!singleTorrent || isStopped), onClick: () => {
+          // 与工具栏一致的确认（TopBar recheck）：已下载过（percentDone>0）的种子先确认再校验
+          const needConfirm = ids.some((i) => (snap.all[i]?.percentDone ?? 0) > 0)
+          if (!needConfirm || window.confirm(lang.toolbar.tip['recheck-confirm'])) doIds('torrent-verify')
+        } },
         '-',
-        { id: 'morepeers', text: t.tip['more-peers'], icon: 'tr-icon-more-peers', disabled: !singleTorrent || isStopped, onClick: () => doIds('torrent-reannounce') },
+        { id: 'morepeers', text: t.tip['more-peers'], icon: 'tr-icon-more-peers', disabled: !singleTorrent || isStopped || isChecking, onClick: () => doIds('torrent-reannounce') },
         { id: 'changeDownloadDir', text: t.tip['change-download-dir'], icon: 'tr-icon-folder-change', onClick: () => openDialog('torrent-changeDownloadDir', { ids }) },
         { id: 'copyPath', text: t.tip['copy-path-to-clipboard'], icon: 'tr-icon-clippy', onClick: () => {
           const paths = Array.from(new Set(ids.map((i) => snap.all[i]?.downloadDir).filter(Boolean)))
@@ -164,22 +173,25 @@ export function TorrentList() {
         { id: 'menu-queue-move-down', text: lang.menus.queue['move-down'], icon: 'tr-icon-down', disabled: !singleTorrent, onClick: () => doIds('queue-move-down') },
         { id: 'menu-queue-move-bottom', text: lang.menus.queue['move-bottom'], icon: 'tr-icon-bottom', disabled: !singleTorrent, onClick: () => doIds('queue-move-bottom') },
         { id: 'magnetLink', text: lang.menus.copyMagnetLink, icon: 'tr-icon-labels', onClick: async () => {
-          const result = await rpc<{ torrents: { id: number; magnetLink: string }[] }>('torrent-get', {
-            fields: ['id', 'magnetLink'],
-            ids,
-          })
-          const links = (result.torrents || []).map((x) => x.magnetLink).join('\n')
-          copyToClipboard(links)
-          showToast(lang.menus.copyMagnetLink)
+          try {
+            const result = await rpc<{ torrents: { id: number; magnetLink: string }[] }>('torrent-get', {
+              fields: ['id', 'magnetLink'],
+              ids,
+            })
+            const links = (result.torrents || []).map((x) => x.magnetLink).join('\n')
+            copyToClipboard(links)
+            showToast(lang.menus.copyMagnetLink)
+          } catch (e) {
+            showToast(String((e as Error).message))
+          }
         } },
         ...(config.nav.labels
           ? [
               '-' as const,
               {
                 id: 'setLabels',
-                text: (lang.menus as Record<string, unknown>).setLabels as string,
+                text: lang.menus.setLabels,
                 icon: 'tr-icon-labels',
-                disabled: ids.length === 0,
                 onClick: () =>
                   openDialog('torrent-setLabels', {
                     hashs: ids.map((i) => snap.all[i]?.hashString).filter(Boolean),
@@ -277,7 +289,10 @@ export function TorrentList() {
           pageSize={config.pageSize}
           pageList={config.pageList}
           onPageChange={setPage}
-          onPageSizeChange={(s) => saveConfig({ pageSize: s })}
+          onPageSizeChange={(s) => {
+            setPage(1)
+            saveConfig({ pageSize: s })
+          }}
           onRowContextMenu={onRowContextMenu}
           keyboard={ui.dialogs.length === 0}
           onKeyDown={onGridKeyDown}

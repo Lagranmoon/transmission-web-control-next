@@ -1,5 +1,5 @@
 // 配置导出/导入 + 自动匹配数据目录 — 移植原项目对应模板
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Dialog, LinkButton, NumberSpinner, ComboBox } from '../components/ui'
 import { useLang } from '../i18n'
 import { closeDialog, openDialog, showToast, showProgress, hideProgress } from '../lib/ui'
@@ -144,9 +144,6 @@ export function ImportConfigDialog({ dialogId }: { dialogId: string }) {
       footer={
         <>
           {message && <span className="mr-2 text-red-600">{message}</span>}
-          <LinkButton icon="icon-ok" loading={busy}>
-            {lang.dialog.public['button-import']}
-          </LinkButton>
           <LinkButton icon="icon-cancel" onClick={() => closeDialog(dialogId)}>
             {lang.dialog.public['button-cancel']}
           </LinkButton>
@@ -193,7 +190,9 @@ export function AutoMatchDialog({ dialogId, ids }: AutoMatchProps) {
   const [working, setWorking] = useState(false)
   const [curTorrent, setCurTorrent] = useState('')
   const [curFolder, setCurFolder] = useState('')
-  const ignoreRef = { current: false }
+  // 取消/忽略信号需跨渲染持久：运行中的匹配循环读取的是同一 ref，而非每轮渲染的新对象
+  const workingRef = useRef(false)
+  const ignoreRef = useRef(false)
 
   const stop = () => {
     setWorking(false)
@@ -222,15 +221,13 @@ export function AutoMatchDialog({ dialogId, ids }: AutoMatchProps) {
     return false
   }
 
-  const workingRef = { current: false }
-
   const start = async () => {
     if (!folders.length || !candidates.length) return
     workingRef.current = true
     ignoreRef.current = false
     setWorking(true)
     // 自动匹配耗时较长：右下角浮层提示处理进度（stop() 中清除）
-    showProgress(`正在处理 ${candidates.length} 个种子…`)
+    showProgress(lang.public['text-processing'].replace('%n', String(candidates.length)))
     localStorage.setItem('auto-match-data-folder-work-mode', mode)
     localStorage.setItem('auto-match-data-folder-time-interval', String(interval * 1000))
 

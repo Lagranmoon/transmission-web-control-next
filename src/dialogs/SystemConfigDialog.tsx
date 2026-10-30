@@ -10,6 +10,17 @@ import { rpc } from '../lib/rpc'
 
 type S = Record<string, any>
 
+/** session-get 中只读、不可通过 session-set 设置的字段（与原版保存逻辑/导出对话框排除列表一致） */
+const READONLY_KEYS = new Set([
+  'version',
+  'rpc-version',
+  'config-dir',
+  'session-id',
+  'units',
+  'download-dir-free-space',
+  'blocklist-size',
+])
+
 export function SystemConfigDialog({ dialogId }: { dialogId: string }) {
   const { lang, name: langName } = useLang()
   const session = useSession()
@@ -42,7 +53,14 @@ export function SystemConfigDialog({ dialogId }: { dialogId: string }) {
     if (!form) return
     setSaving(true)
     try {
-      await rpc('session-set', { ...form })
+      // 与原版一致：只提交相对当前 session 的变更项，排除只读字段
+      const base = (session.data || {}) as S
+      const changed: S = {}
+      for (const key of Object.keys(form)) {
+        if (READONLY_KEYS.has(key)) continue
+        if (form[key] !== base[key]) changed[key] = form[key]
+      }
+      if (Object.keys(changed).length) await rpc('session-set', changed)
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
       await session.refetch()
@@ -54,6 +72,10 @@ export function SystemConfigDialog({ dialogId }: { dialogId: string }) {
   const testPort = async () => {
     setTestResult('testing')
     try {
+      // 端口有变更时先保存生效再测试，避免测到旧端口（与原版一致）
+      if (form['peer-port'] != null && session.data && form['peer-port'] !== session.data['peer-port']) {
+        await rpc('session-set', { 'peer-port': form['peer-port'] })
+      }
       const r = await rpc<{ 'port-is-open': boolean }>('port-test')
       setTestResult(r['port-is-open'] ? 'open' : 'closed')
     } catch {
@@ -120,10 +142,7 @@ export function SystemConfigDialog({ dialogId }: { dialogId: string }) {
               </tr>
               <tr>
                 <td className="title">{L['download-dir-free-space']}</td>
-                <td colSpan={3}>
-                  {free.data ? formatSize(free.data['size-bytes']) : formatSize(form['download-dir-free-space'])}{' '}
-                  {form['incomplete-dir-enabled'] ? `(${form['incomplete-dir'] ?? ''})` : ''}
-                </td>
+                <td colSpan={3}>{free.data ? formatSize(free.data['size-bytes']) : formatSize(form['download-dir-free-space'])}</td>
               </tr>
               <tr>
                 <td className="title">{L['incomplete-dir-enabled']}</td>
@@ -133,6 +152,13 @@ export function SystemConfigDialog({ dialogId }: { dialogId: string }) {
                     onChange={(v) => set({ 'incomplete-dir-enabled': v })}
                     onText={lang.public['text-on']}
                     offText={lang.public['text-off']}
+                  />{' '}
+                  <input
+                    className="eu-textbox"
+                    style={{ width: 320 }}
+                    value={form['incomplete-dir'] ?? ''}
+                    onChange={(e) => set({ 'incomplete-dir': e.target.value })}
+                    disabled={!form['incomplete-dir-enabled']}
                   />
                 </td>
               </tr>
@@ -183,16 +209,7 @@ export function SystemConfigDialog({ dialogId }: { dialogId: string }) {
               <tr>
                 <td className="title">{L['peer-port-random-on-start']}</td>
                 <td>
-                  <SwitchButton checked={!!form['peer-port-random-on-start']} onChange={(v) => set({ 'peer-port-random-on-start': v })} onText={lang.public['text-on']} offText={lang.public['text-off']} />
-                </td>
-                <td className="title">{L['port-forwarding-enabled']}</td>
-                <td>
-                  <SwitchButton checked={!!form['port-forwarding-enabled']} onChange={(v) => set({ 'port-forwarding-enabled': v })} onText={lang.public['text-on']} offText={lang.public['text-off']} />
-                </td>
-              </tr>
-              <tr>
-                <td className="title">{lang.dialog['system-config']['peer-port-random-on-start'].includes('固定') ? '端口：' : 'Port:'}</td>
-                <td>
+                  <SwitchButton checked={!!form['peer-port-random-on-start']} onChange={(v) => set({ 'peer-port-random-on-start': v })} onText={lang.public['text-on']} offText={lang.public['text-off']} />{' '}
                   <NumberSpinner value={form['peer-port'] ?? 0} onChange={(v) => set({ 'peer-port': v })} width={90} disabled={!!form['peer-port-random-on-start']} />{' '}
                   <LinkButton onClick={testPort} loading={testResult === 'testing'}>
                     {L['test-port']}
@@ -200,6 +217,12 @@ export function SystemConfigDialog({ dialogId }: { dialogId: string }) {
                   {testResult === 'open' && <span className="text-green-600 ml-1">{L['port-is-open-true']}</span>}
                   {testResult === 'closed' && <span className="text-red-600 ml-1">{L['port-is-open-false']}</span>}
                 </td>
+                <td className="title">{L['port-forwarding-enabled']}</td>
+                <td>
+                  <SwitchButton checked={!!form['port-forwarding-enabled']} onChange={(v) => set({ 'port-forwarding-enabled': v })} onText={lang.public['text-on']} offText={lang.public['text-off']} />
+                </td>
+              </tr>
+              <tr>
                 <td className="title">{L.encryption}</td>
                 <td>
                   <ComboBox
@@ -213,22 +236,22 @@ export function SystemConfigDialog({ dialogId }: { dialogId: string }) {
                     onChange={(v) => set({ encryption: v })}
                   />
                 </td>
-              </tr>
-              <tr>
                 <td className="title">{L['utp-enabled']}</td>
                 <td>
                   <SwitchButton checked={!!form['utp-enabled']} onChange={(v) => set({ 'utp-enabled': v })} onText={lang.public['text-on']} offText={lang.public['text-off']} />
                 </td>
+              </tr>
+              <tr>
                 <td className="title">{L['dht-enabled']}</td>
                 <td>
                   <SwitchButton checked={!!form['dht-enabled']} onChange={(v) => set({ 'dht-enabled': v })} onText={lang.public['text-on']} offText={lang.public['text-off']} />
                 </td>
-              </tr>
-              <tr>
                 <td className="title">{L['lpd-enabled']}</td>
                 <td>
                   <SwitchButton checked={!!form['lpd-enabled']} onChange={(v) => set({ 'lpd-enabled': v })} onText={lang.public['text-on']} offText={lang.public['text-off']} />
                 </td>
+              </tr>
+              <tr>
                 <td className="title">{L['pex-enabled']}</td>
                 <td>
                   <SwitchButton checked={!!form['pex-enabled']} onChange={(v) => set({ 'pex-enabled': v })} onText={lang.public['text-on']} offText={lang.public['text-off']} />
@@ -288,6 +311,13 @@ export function SystemConfigDialog({ dialogId }: { dialogId: string }) {
                 <td className="title">{L['blocklist-enabled']}</td>
                 <td colSpan={3}>
                   <SwitchButton checked={!!form['blocklist-enabled']} onChange={(v) => set({ 'blocklist-enabled': v })} onText={lang.public['text-on']} offText={lang.public['text-off']} />{' '}
+                  <input
+                    className="eu-textbox"
+                    style={{ width: 320 }}
+                    value={form['blocklist-url'] ?? ''}
+                    onChange={(e) => set({ 'blocklist-url': e.target.value })}
+                    disabled={!form['blocklist-enabled']}
+                  />{' '}
                   <span>{L['blocklist-size'].replace('%n', String(form['blocklist-size'] ?? 0))}</span>{' '}
                   <LinkButton
                     icon="tr-icon-reload"
@@ -448,6 +478,7 @@ export function SystemConfigDialog({ dialogId }: { dialogId: string }) {
                   <LinkButton
                     icon="tr-icon-reload"
                     onClick={() => {
+                      if (!window.confirm(lang.public['text-confirm'])) return
                       localStorage.removeItem('transmission-web-control.system')
                       localStorage.removeItem('transmission-web-control')
                       location.reload()

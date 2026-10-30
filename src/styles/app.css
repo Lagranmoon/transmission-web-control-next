@@ -743,9 +743,12 @@ i.icon-flag-edit {
   border-radius: 6px;
 }
 
-/* 表头拖动排序指示 */
+/* 表头拖动排序指示（按拖动方向区分，与实际插入位置一致：before=插到目标列前/左红边，after=插到目标列后/右红边） */
 th.datagrid-head-cell.drop-over-before {
   border-left: 2px solid #ff0000;
+}
+th.datagrid-head-cell.drop-over-after {
+  border-right: 2px solid #ff0000;
 }
 
 /* 标签列内联设置按钮 */

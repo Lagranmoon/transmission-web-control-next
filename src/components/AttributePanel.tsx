@@ -1,17 +1,16 @@
 // 底部详情面板 — 复刻 torrent-attribute.html：左侧 Tabs（常规/服务器/文件/用户/设置）
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { DataGrid, type GridColumn } from './DataGrid'
 import { LinkButton, NumberSpinner, TriStateCheckbox, useMenu } from './ui'
 import { useLang } from '../i18n'
 import { useConfig } from '../lib/config'
 import { useTorrentDetails, useRpcMutation, useTorrents } from '../api/queries'
 import { getSnapshot } from '../lib/torrents'
-import { uiStore, useUi, showToast, openDialog } from '../lib/ui'
-import { formatLongTime, formatSize, getTotalTime } from '../lib/format'
+import { useUi, showToast, openDialog } from '../lib/ui'
+import { compareField, formatLongTime, formatSize, getTotalTime } from '../lib/format'
 import { getTimeUnits } from '../i18n'
 import { STATUS, type FileStat, type Peer, type Torrent, type TorrentFile, type TrackerStat } from '../lib/types'
 import { ProgressBar } from '../lib/columns'
-import { rpc } from '../lib/rpc'
 import { geoEnabled, lookupFlag, lookupDetail, flagSrc } from '../lib/peers-geo'
 
 type FileRow = Record<string, unknown> & { index: number }
@@ -21,7 +20,6 @@ type PeerRow = Record<string, unknown>
 export function AttributePanel() {
   const { lang } = useLang()
   const ui = useUi()
-  const config = useConfig()
   const [tab, setTab] = useState('base')
   const enabled = ui.attributeExpanded && ui.currentTorrentId > 0
   const { data: detail } = useTorrentDetails(ui.currentTorrentId, enabled)
@@ -111,13 +109,6 @@ function BaseTab({ torrent }: { torrent: Torrent }) {
     }
     return cells
   }, [torrent.pieces, torrent.pieceCount, torrent.pieceSize])
-
-  const row = (label: string, value: React.ReactNode, key: string) => (
-    <tr key={key}>
-      <td className="title" style={{ borderBottom: '1px solid #ccc' }}>{label}</td>
-      <td style={{ borderBottom: '1px solid #ccc' }}>{value}</td>
-    </tr>
-  )
 
   const completeSize = torrent.totalSize - torrent.leftUntilDone
   const remaining = torrent.remainingTime ?? 0
@@ -235,8 +226,8 @@ function linkify(text: string): React.ReactNode {
 /* ---------------- 服务器（Tracker） ---------------- */
 function ServersTab({ torrent }: { torrent: Torrent }) {
   const { lang } = useLang()
-  const F = lang.torrent.attribute['servers-fields'] as unknown as Record<string, string>
-  const stateText = (lang.torrent.attribute['servers-fields'] as unknown as Record<string, Record<string, string>>).announceStateText
+  const F = lang.torrent.attribute['servers-fields']
+  const stateText = F.announceStateText
   const boolText = lang.torrent.attribute.status as Record<string, string>
   const mutation = useRpcMutation()
   const [selected, setSelected] = useState<number | null>(null)
@@ -245,7 +236,7 @@ function ServersTab({ torrent }: { torrent: Torrent }) {
     return (torrent.trackerStats || []).map((s: TrackerStat) => ({
       id: s.id,
       announce: s.announce,
-      announceState: stateText?.[String(s.announceState)] ?? s.announceState,
+      announceState: stateText[String(s.announceState) as keyof typeof stateText] ?? s.announceState,
       lastAnnounceResult: s.lastAnnounceResult,
       downloadCount: s.downloadCount === -1 ? lang.public['text-unknown'] : s.downloadCount,
       leecherCount: s.leecherCount === -1 ? lang.public['text-unknown'] : s.leecherCount,
@@ -294,10 +285,13 @@ function ServersTab({ torrent }: { torrent: Torrent }) {
             if (!selTracker) return
             const url = window.prompt('Tracker:', selTracker.announce)
             if (url && url !== selTracker.announce) {
-              mutation.mutate({
-                method: 'torrent-set',
-                args: { ids: [torrent.id], trackerReplace: [selTracker.id, url] },
-              })
+              mutation.mutate(
+                {
+                  method: 'torrent-set',
+                  args: { ids: [torrent.id], trackerReplace: [selTracker.id, url] },
+                },
+                { onError: (e) => showToast(String((e as Error).message)) },
+              )
             }
           }}
         />
@@ -308,10 +302,13 @@ function ServersTab({ torrent }: { torrent: Torrent }) {
           onClick={() => {
             if (!selTracker) return
             if (window.confirm(lang.torrent.attribute.other['tracker-remove-confim'])) {
-              mutation.mutate({
-                method: 'torrent-set',
-                args: { ids: [torrent.id], trackerRemove: [selTracker.id] },
-              })
+              mutation.mutate(
+                {
+                  method: 'torrent-set',
+                  args: { ids: [torrent.id], trackerRemove: [selTracker.id] },
+                },
+                { onError: (e) => showToast(String((e as Error).message)) },
+              )
             }
           }}
         />
@@ -329,6 +326,8 @@ function FilesTab({ torrent }: { torrent: Torrent }) {
   const [checked, setChecked] = useState<Set<string | number>>(new Set())
   const [filter, setFilter] = useState('.*')
   const [page, setPage] = useState(1)
+  const [sortName, setSortName] = useState<string | null>(null)
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
 
   const F = lang.torrent.attribute['files-fields'] as Record<string, string>
   const P = lang.torrent.attribute.priority as Record<string, string>
@@ -357,8 +356,9 @@ function FilesTab({ torrent }: { torrent: Torrent }) {
     } catch {
       /* 非法正则忽略 */
     }
+    if (sortName) list.sort(compareField(sortName, sortOrder))
     return list
-  }, [torrent.files, torrent.fileStats, filter, lang])
+  }, [torrent.files, torrent.fileStats, filter, lang, sortName, sortOrder])
 
   const columns: GridColumn<FileRow>[] = [
     { field: 'ck', title: '', checkbox: true, allowCustom: false, width: 28 },
@@ -381,12 +381,15 @@ function FilesTab({ torrent }: { torrent: Torrent }) {
   const setFilesWanted = (wanted: boolean) => {
     const files = Array.from(checked).map(Number)
     if (!files.length) return
-    mutation.mutate({
-      method: 'torrent-set',
-      args: wanted
-        ? { ids: [torrent.id], 'files-wanted': files }
-        : { ids: [torrent.id], 'files-unwanted': files },
-    })
+    mutation.mutate(
+      {
+        method: 'torrent-set',
+        args: wanted
+          ? { ids: [torrent.id], 'files-wanted': files }
+          : { ids: [torrent.id], 'files-unwanted': files },
+      },
+      { onError: (e) => showToast(String((e as Error).message)) },
+    )
     setChecked(new Set())
   }
 
@@ -394,7 +397,10 @@ function FilesTab({ torrent }: { torrent: Torrent }) {
     const files = Array.from(checked).map(Number)
     if (!files.length) return
     const key = priority === 1 ? 'priority-high' : priority === -1 ? 'priority-low' : 'priority-normal'
-    mutation.mutate({ method: 'torrent-set', args: { ids: [torrent.id], [key]: files } })
+    mutation.mutate(
+      { method: 'torrent-set', args: { ids: [torrent.id], [key]: files } },
+      { onError: (e) => showToast(String((e as Error).message)) },
+    )
     setChecked(new Set())
   }
 
@@ -413,6 +419,13 @@ function FilesTab({ torrent }: { torrent: Torrent }) {
         rownumbers
         checkedKeys={checked}
         onCheck={setChecked}
+        sortName={sortName}
+        sortOrder={sortOrder}
+        onSort={(field) => {
+          const nextOrder: 'asc' | 'desc' = sortName === field && sortOrder === 'asc' ? 'desc' : 'asc'
+          setSortName(field)
+          setSortOrder(nextOrder)
+        }}
         pagination={config.pagination}
         page={page}
         pageSize={config.pageSize}
@@ -442,7 +455,10 @@ function FilesTab({ torrent }: { torrent: Torrent }) {
         <select
           className="border border-[var(--eu-border)] rounded h-[22px]"
           value={filterTemplates.some((t) => t.value === filter) ? filter : ''}
-          onChange={(e) => setFilter(e.target.value)}
+          onChange={(e) => {
+            setFilter(e.target.value)
+            setPage(1)
+          }}
         >
           <option value="">自定义…</option>
           {filterTemplates.map((t) => (
@@ -455,7 +471,10 @@ function FilesTab({ torrent }: { torrent: Torrent }) {
           className="eu-textbox"
           style={{ width: 220 }}
           value={filter}
-          onChange={(e) => setFilter(e.target.value)}
+          onChange={(e) => {
+            setFilter(e.target.value)
+            setPage(1)
+          }}
           placeholder=".*"
         />
       </div>
@@ -471,21 +490,30 @@ function PeersTab({ torrent }: { torrent: Torrent }) {
   const [page, setPage] = useState(1)
   // IP 归属地/国旗（启用后异步补齐）
   const [geo, setGeo] = useState<Record<string, { flag: string | null; detail: string | null }>>({})
+  // peer 地址集合签名：轮询产生的新数组引用内容未变时跳过重查，避免每轮全表重渲染
+  const peersKey = (torrent.peers || []).map((p) => p.address).join('\n')
+  const lastPeersKey = useRef('')
 
   useEffect(() => {
     if (!geoEnabled()) return
+    const peers = torrent.peers || []
+    if (peersKey === lastPeersKey.current) return
+    lastPeersKey.current = peersKey
     let alive = true
     void (async () => {
       const next: Record<string, { flag: string | null; detail: string | null }> = {}
-      for (const p of torrent.peers || []) {
-        next[p.address] = { flag: await lookupFlag(p.address), detail: await lookupDetail(p.address) }
-      }
+      // 与原版一致：每个 peer 并行查询，而不是逐个串行排队
+      await Promise.all(
+        peers.map(async (p) => {
+          next[p.address] = { flag: await lookupFlag(p.address), detail: await lookupDetail(p.address) }
+        }),
+      )
       if (alive) setGeo(next)
     })()
     return () => {
       alive = false
     }
-  }, [torrent.peers])
+  }, [torrent.peers, peersKey])
 
   const rows: PeerRow[] = useMemo(() => {
     return (torrent.peers || []).map((p: Peer) => {
@@ -553,7 +581,7 @@ function ConfigTab({ torrent }: { torrent: Torrent }) {
   const [downloadLimit, setDownloadLimit] = useState(torrent.downloadLimit ?? 0)
   const [uploadLimited, setUploadLimited] = useState(!!torrent.uploadLimited)
   const [uploadLimit, setUploadLimit] = useState(torrent.uploadLimit ?? 0)
-  const [peerLimit, setPeerLimit] = useState((torrent as Torrent & { 'peer-limit'?: number })['peer-limit'] ?? 60)
+  const [peerLimit, setPeerLimit] = useState(torrent['peer-limit'] ?? 60)
   const [seedRatioMode, setSeedRatioMode] = useState(tri(torrent.seedRatioMode))
   const [seedRatioLimit, setSeedRatioLimit] = useState(torrent.seedRatioLimit ?? 2)
   const [seedIdleMode, setSeedIdleMode] = useState(tri(torrent.seedIdleMode))
@@ -580,6 +608,11 @@ function ConfigTab({ torrent }: { torrent: Torrent }) {
           setSaved('saved')
           setTimeout(() => setSaved('none'), 2000)
         },
+        onError: (e) => {
+          // 失败时复位保存按钮（否则永久停在 loading 且不可重试），并给出可见反馈
+          setSaved('none')
+          showToast(String((e as Error).message))
+        },
       },
     )
   }
@@ -605,19 +638,17 @@ function ConfigTab({ torrent }: { torrent: Torrent }) {
                 id="seedRatioMode"
                 checked={seedRatioMode.checked}
                 indeterminate={seedRatioMode.indeterminate}
-                onChange={(next) =>
-                  setSeedRatioMode({
-                    checked: next.checked,
-                    indeterminate: next.indeterminate,
-                    // 三态循环：0(跟随全局) → 1(启用) → 2(禁用)
-                    value: next.indeterminate ? 0 : next.checked ? 1 : 2,
-                  })
-                }
+                onChange={() => {
+                  // TriStateCheckbox 只翻转 checked，这里按当前值自算下一态：0(跟随全局) → 1(启用) → 2(禁用) → 0
+                  const cur = seedRatioMode.value ?? (seedRatioMode.indeterminate ? 0 : seedRatioMode.checked ? 1 : 2)
+                  const next = (cur + 1) % 3
+                  setSeedRatioMode({ checked: next === 1, indeterminate: next === 0, value: next })
+                }}
                 label={L.seedRatioMode}
               />
             </td>
             <td width="12%">
-              <NumberSpinner value={seedRatioLimit} onChange={setSeedRatioLimit} disabled={seedRatioMode.value === 2} />
+              <NumberSpinner value={seedRatioLimit} onChange={setSeedRatioLimit} disabled={seedRatioMode.value !== 1} />
             </td>
           </tr>
           <tr>
@@ -637,18 +668,17 @@ function ConfigTab({ torrent }: { torrent: Torrent }) {
                 id="seedIdleMode"
                 checked={seedIdleMode.checked}
                 indeterminate={seedIdleMode.indeterminate}
-                onChange={(next) =>
-                  setSeedIdleMode({
-                    checked: next.checked,
-                    indeterminate: next.indeterminate,
-                    value: next.indeterminate ? 0 : next.checked ? 1 : 2,
-                  })
-                }
+                onChange={() => {
+                  // 同 seedRatioMode：0(跟随全局) → 1(启用) → 2(禁用) → 0
+                  const cur = seedIdleMode.value ?? (seedIdleMode.indeterminate ? 0 : seedIdleMode.checked ? 1 : 2)
+                  const next = (cur + 1) % 3
+                  setSeedIdleMode({ checked: next === 1, indeterminate: next === 0, value: next })
+                }}
                 label={L.seedIdleMode}
               />
             </td>
             <td>
-              <NumberSpinner value={seedIdleLimit} onChange={setSeedIdleLimit} disabled={seedIdleMode.value === 2} />{' '}
+              <NumberSpinner value={seedIdleLimit} onChange={setSeedIdleLimit} disabled={seedIdleMode.value !== 1} />{' '}
               {lang.dialog['system-config'].minutes}
             </td>
           </tr>

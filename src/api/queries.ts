@@ -107,6 +107,8 @@ export function useRpcMutation() {
     onSuccess: (_data, variables) => {
       void qc.invalidateQueries({ queryKey: queryKeys.torrents })
       void qc.invalidateQueries({ queryKey: queryKeys.stats })
+      // 前缀匹配命中所有 torrent-details 查询：autoReload 关闭时详情面板也能刷新
+      void qc.invalidateQueries({ queryKey: ['torrent-details'] })
       if (variables.method === 'session-set') {
         void qc.invalidateQueries({ queryKey: queryKeys.session })
       }
