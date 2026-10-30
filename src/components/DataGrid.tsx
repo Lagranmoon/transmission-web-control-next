@@ -424,7 +424,7 @@ export function DataGrid<T extends Record<string, unknown>>({
             {pageRows.length === 0 && (
               <tr>
                 <td colSpan={colCount}>
-                  <div className="datagrid-cell" style={{ textAlign: 'center', color: '#999', padding: 14 }}>
+                  <div className="datagrid-cell" style={{ textAlign: 'center', color: 'var(--eu-text)', opacity: 0.55, padding: 14 }}>
                     {emptyText}
                   </div>
                 </td>
@@ -531,7 +531,7 @@ function GridRowImpl<T extends Record<string, unknown>>({
         <td>
           <div
             className="datagrid-cell"
-            style={{ textAlign: 'center', color: '#444', ...(cellStyle || {}) }}
+            style={{ textAlign: 'center', color: 'var(--eu-text)', opacity: 0.75, ...(cellStyle || {}) }}
           >
             {rowIndex + 1}
           </div>

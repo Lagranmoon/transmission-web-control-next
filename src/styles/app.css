@@ -35,7 +35,7 @@ button {
 
 /* ---------- EasyUI 风格基础类 ---------- */
 .eu-panel {
-  background: #fff;
+  background: var(--eu-surface);
   border: 1px solid var(--eu-border);
   display: flex;
   flex-direction: column;
@@ -138,7 +138,7 @@ button {
 .eu-textbox {
   border: 1px solid var(--eu-border);
   border-radius: 5px;
-  background: #fff;
+  background: var(--eu-surface-alt);
   padding: 2px 4px;
   height: 22px;
   outline: none;
@@ -162,7 +162,7 @@ textarea.eu-textbox {
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  background: #fff;
+  background: var(--eu-surface);
 }
 /* 单一滚动容器：表头随表体一起横向滚动，thead 粘性置顶 */
 .eu-datagrid-scroll {
@@ -192,7 +192,7 @@ textarea.eu-textbox {
   border-right: 1px dotted var(--eu-line);
   border-bottom: 1px dotted var(--eu-line);
   padding: 0;
-  background: #fff;
+  background: var(--eu-surface);
 }
 .eu-datagrid-row.alt > td {
   background: var(--eu-alt);
@@ -389,7 +389,7 @@ textarea.eu-textbox {
   font-size: 12px;
 }
 .eu-dialog-body {
-  background: #fff;
+  background: var(--eu-surface);
   border: 1px solid var(--eu-border);
   flex: 1;
   min-height: 0;
@@ -452,7 +452,7 @@ textarea.eu-textbox {
   min-height: 0;
   border: 1px solid var(--eu-border);
   border-left: 0;
-  background: #fff;
+  background: var(--eu-surface);
   overflow: auto;
   padding: 2px;
 }
@@ -589,7 +589,7 @@ i.icon-cancel {
   background-image: url('/assets/easyui-icons/cancel.png');
 }
 i.icon-save {
-  background-image: url('/assets/easyui-icons/save.png');
+  background-image: url('/assets/easyui-icons/filesave.png');
 }
 i.icon-filter {
   background-image: url('/assets/easyui-icons/filter.png');
@@ -691,7 +691,7 @@ i.icon-flag-edit {
 
 /* messager 图标 */
 .messager-question {
-  background: url('/assets/images/question.png') no-repeat;
+  background: url('/assets/easyui-icons/help.png') no-repeat;
   display: inline-block;
   width: 32px;
   height: 32px;
@@ -770,7 +770,7 @@ th.datagrid-head-cell.drop-over-before {
   border: 1px solid #ccc;
   border-radius: 6px;
   overflow: hidden;
-  background: #fff;
+  background: var(--eu-surface);
 }
 .m-list li + li {
   border-top: 1px solid #ddd;
@@ -781,7 +781,7 @@ th.datagrid-head-cell.drop-over-before {
   justify-content: space-between;
   padding: 10px 12px;
   cursor: pointer;
-  color: #333;
+  color: var(--eu-text);
   text-decoration: none;
 }
 .m-list a:hover {
@@ -809,8 +809,8 @@ th.datagrid-head-cell.drop-over-before {
 .m-button {
   border: 1px solid #b3b3b3;
   border-radius: 5px;
-  background: linear-gradient(#fff, #f1f1f1);
-  color: #333;
+  background: linear-gradient(var(--eu-surface-alt), var(--eu-grid-head-bottom));
+  color: var(--eu-text);
   padding: 8px 16px;
   cursor: pointer;
   font-size: 13px;

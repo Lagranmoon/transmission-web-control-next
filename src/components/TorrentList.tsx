@@ -292,8 +292,12 @@ export function TorrentList() {
               className="l-btn"
               style={{ border: '1px solid var(--eu-border)', background: 'var(--eu-menu-bg, #fff)', color: 'var(--eu-text)', padding: '0 10px' }}
               title={lang.toolbar.tip['add-torrent']}
-              href="javascript:void(0)"
-              onClick={() => openDialog('torrent-add')}
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.preventDefault()
+                openDialog('torrent-add')
+              }}
             >
               <Icon name="tr-icon-plus" />
               <span className="l-btn-text">{lang.toolbar['add-torrent']}</span>

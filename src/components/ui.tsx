@@ -115,9 +115,20 @@ export function LinkButton({
       className={`l-btn ${disabled || loading ? 'l-btn-disabled' : ''} ${className}`}
       onClick={(e) => {
         if (disabled || loading) return
+        e.preventDefault()
         onClick?.(e)
       }}
-      href="javascript:void(0)"
+      // React 19 会拦截 javascript: URL（原版 EasyUI 的 href="javascript:void(0);" 写法
+      // 会在每次点击时抛 "React has blocked a javascript: URL"），故不带 href，改用 role
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          if (disabled || loading) return
+          e.preventDefault()
+          onClick?.(e as unknown as React.MouseEvent)
+        }
+      }}
     >
       {loading ? (
         <i className="icon-loading" />
@@ -448,7 +459,7 @@ export function Pagination({
       {btn('»', cur >= pages, pages, '末页')}
       {pageList && onPageSizeChange && (
         <select
-          className="border border-[var(--eu-border)] rounded bg-white px-0.5 h-[20px]"
+          className="border border-[var(--eu-border)] rounded bg-[var(--eu-surface-alt)] text-[var(--eu-text)] px-0.5 h-[20px]"
           value={pageSize}
           onChange={(e) => onPageSizeChange(Number(e.target.value))}
         >
@@ -651,7 +662,7 @@ export function ComboBox({
       </div>
       {open && (
         <div
-          className="absolute z-[9998] bg-white border border-[var(--eu-border)] rounded-b shadow-md max-h-[260px] overflow-auto"
+          className="absolute z-[9998] bg-[var(--eu-surface)] text-[var(--eu-text)] border border-[var(--eu-border)] rounded-b shadow-md max-h-[260px] overflow-auto"
           style={{ top: '100%', left: 0, right: 0, minWidth: width }}
         >
           {editable && !visible.some((o) => o.value === value) && value && filter === '' && (

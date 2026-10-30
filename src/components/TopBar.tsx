@@ -4,10 +4,11 @@ import { LinkButton, ComboBox, NumberSpinner, SearchBox, useMenu } from './ui'
 import { useLang } from '../i18n'
 import { saveConfig, useConfig } from '../lib/config'
 import { openDialog, showToast, uiStore, useUi } from '../lib/ui'
-import { useSession, useStats, useTorrents, useRpcMutation, queryKeys } from '../api/queries'
+import { useSession, useStats, useTorrents, useRpcMutation, useFreeSpace, queryKeys } from '../api/queries'
 import { getSnapshot, setSearchResult } from '../lib/torrents'
 import { formatSize } from '../lib/format'
 import type { Torrent } from '../lib/types'
+import { asset } from '../lib/asset'
 
 // 主题列表与原版 config.js 一致；黑底主题使用白色 logo
 const THEMES = [
@@ -34,7 +35,7 @@ const DARK_THEMES = new Set(['black', 'ui-dark-hive'])
 export function applyTheme(theme: string) {
   document.documentElement.dataset.theme = theme
   const logo = document.getElementById('logo') as HTMLImageElement | null
-  if (logo) logo.src = DARK_THEMES.has(theme) ? '/assets/logo-white.png' : '/assets/logo.png'
+  if (logo) logo.src = DARK_THEMES.has(theme) ? asset('assets/logo-white.png') : asset('assets/logo.png')
 }
 
 export function TopBar() {
@@ -43,12 +44,17 @@ export function TopBar() {
   const session = useSession()
   const stats = useStats()
   const version = session.data?.version
+  // rpc>=15 后 session-get 不再返回可用空间，用 free-space 方法获取
+  const freeSpace = useFreeSpace((session.data?.['download-dir'] as string) || '')
+  const freeBytes = freeSpace.data?.['size-bytes']
+  const freeSpaceText =
+    freeBytes == null ? '…' : freeBytes >= 0 ? formatSize(freeBytes) : lang.public['text-unknown']
 
   return (
     <div className="eu-panel" style={{ borderTop: 0, borderLeft: 0, borderRight: 0 }}>
       {/* 标题行 */}
       <div className="eu-panel-header" style={{ height: 47, display: 'flex', alignItems: 'center' }}>
-        <img id="logo" src={DARK_THEMES.has(config.theme) ? '/assets/logo-white.png' : '/assets/logo.png'} width={180} height={50} style={{ objectFit: 'contain' }} alt="logo" />
+        <img id="logo" src={DARK_THEMES.has(config.theme) ? asset('assets/logo-white.png') : asset('assets/logo.png')} width={180} height={50} style={{ objectFit: 'contain' }} alt="logo" />
         <div className="ml-auto flex items-center gap-2 pr-2">
           <span>Theme: </span>
           <ComboBox
@@ -110,7 +116,7 @@ export function TopBar() {
         <span className="button-split">|</span>
         <span>
           {lang.dialog['system-config']['download-dir-free-space']}{' '}
-          {session.data ? formatSize((session.data as Record<string, number>)['download-dir-free-space'] ?? 0) : '…'}
+          {freeSpaceText}
         </span>
         <span className="ml-auto text-[var(--eu-text)]">
           {version ? `Transmission ${lang.statusbar.version}${version}, RPC: ${session.data?.['rpc-version']}, WEB Control: ${__APP_VERSION__}` : ''}

@@ -1,6 +1,7 @@
 // Peers IP 归属地/国旗 — 移植原 system.js 的 ipInfo 逻辑
 // 支持 ipinfo.io token 或自定义 URL（%ip/%lang/%host/%hostname/%protocol/%navlang）
 import { configStore } from './config'
+import { asset } from './asset'
 
 const flagCache = new Map<string, string>()
 const detailCache = new Map<string, string>()
@@ -61,5 +62,5 @@ export function geoEnabled(): boolean {
 }
 
 export function flagSrc(code: string): string {
-  return `/assets/flags/${code}.png`
+  return asset(`assets/flags/${code}.png`)
 }
