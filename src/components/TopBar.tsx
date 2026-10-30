@@ -113,7 +113,7 @@ export function TopBar() {
           {session.data ? formatSize((session.data as Record<string, number>)['download-dir-free-space'] ?? 0) : '…'}
         </span>
         <span className="ml-auto text-[var(--eu-text)]">
-          {version ? `Transmission ${lang.statusbar.version}${version}, RPC: ${session.data?.['rpc-version']}, WEB Control: 1.6.1-next` : ''}
+          {version ? `Transmission ${lang.statusbar.version}${version}, RPC: ${session.data?.['rpc-version']}, WEB Control: ${__APP_VERSION__}` : ''}
         </span>
       </div>
     </div>

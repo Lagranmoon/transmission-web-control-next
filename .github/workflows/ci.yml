@@ -1,0 +1,21 @@
+# CI：推送/PR 时类型检查 + 构建，确保产物可构建
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      # 产物资源必须是相对路径（可部署到 Transmission 的子目录）
+      - name: Verify relative asset paths
+        run: grep -o 'src="\./assets/[^"]*"' dist/index.html | head -1 | grep -q assets

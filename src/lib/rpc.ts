@@ -21,7 +21,9 @@ export function getSessionId() {
 
 function rpcUrl(): string {
   const custom = localStorage.getItem('twc.rpcPath')
-  return custom || '/rpc'
+  // 默认相对路径（与原版 rpcpath "../rpc" 一致）：
+  // 部署在 Transmission 的 /transmission/web/ 下时自动解析到 /transmission/rpc
+  return custom || '../rpc'
 }
 
 function authHeader(): Record<string, string> {

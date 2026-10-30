@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Transmission Web Control — modern rewrite (Vite + React + TanStack Query + React Router + Tailwind CSS), 1:1 replica of ronggang/transmission-web-control",
-  "license": "GPL-3.0",
+  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

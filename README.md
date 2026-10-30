@@ -19,6 +19,19 @@
 - i18n：zh-CN / en（语言包直接复用原项目 JSON），界面语言可在「参数设置-更多」切换
 - 配置持久化：localStorage（同原项目 key：`transmission-web-control.system`、`transmission-web-control`）
 
+## 安装（作为 Transmission WebUI）
+
+从 [Releases](../../releases) 下载 zip/tar.gz，解压后将 `index.html` 与 `assets/` 覆盖到 Transmission 的 web 目录（常见路径 `/usr/share/transmission/web/`，群晖等 NAS 请参考对应发行版），强刷浏览器即可。RPC 默认走相对路径 `../rpc`，与官方 WebUI 一致，无需额外配置；也可在浏览器控制台通过 `localStorage.setItem('twc.rpcPath', 'https://host/rpc')` 覆盖。
+
+## 发布流程
+
+推送 `v*` 标签即触发 GitHub Actions 自动构建并发布 Release（zip / tar.gz / sha256 校验）：
+
+```bash
+npm version patch   # 或 minor / major
+git push --follow-tags
+```
+
 ## 开发
 
 ```bash
@@ -42,4 +55,4 @@ npm run build   # 生产构建
 
 ## 许可
 
-GPL-3.0（沿用原项目；图标字体与图片资源来自原项目）
+MIT（沿用原项目，见 LICENSE；图标字体与图片资源来自原项目）

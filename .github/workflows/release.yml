@@ -1,0 +1,55 @@
+# 发布：推送 v* 标签时构建并创建 GitHub Release（zip/tar.gz，解压即 Transmission WebUI）
+name: Release
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Package dist (zip/tar.gz)
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cd dist
+          zip -r "../transmission-web-control-next-v${VERSION}.zip" .
+          tar -czf "../transmission-web-control-next-v${VERSION}.tar.gz" .
+          cd ..
+          sha256sum transmission-web-control-next-v${VERSION}.* > checksums-sha256.txt
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          NOTES="Transmission Web Control（React 重制版）v${VERSION}。
+
+          ## 安装
+          1. 下载 zip 或 tar.gz 并解压
+          2. 备份原 WebUI（可选）：\`cp -r /usr/share/transmission/web /usr/share/transmission/web.orig\`
+          3. 将解压出的 index.html 与 assets/ 覆盖到 Transmission 的 web 目录
+             （Debian/OpenWrt 常见路径：\`/usr/share/transmission/web/\`；也可用环境变量 TR_DAEMON 对应的配置目录）
+          4. 强刷浏览器（Ctrl/Cmd+Shift+R）访问 Transmission 即可
+
+          RPC 默认走相对路径 \`../rpc\`，与官方 WebUI 一致，无需额外配置。"
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" \
+              "transmission-web-control-next-v${VERSION}.zip" \
+              "transmission-web-control-next-v${VERSION}.tar.gz" \
+              checksums-sha256.txt --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              "transmission-web-control-next-v${VERSION}.zip" \
+              "transmission-web-control-next-v${VERSION}.tar.gz" \
+              checksums-sha256.txt \
+              --title "$GITHUB_REF_NAME" --notes "$NOTES" --latest
+          fi

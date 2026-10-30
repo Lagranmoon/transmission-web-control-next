@@ -740,7 +740,7 @@ export function AboutDialog({ dialogId }: { dialogId: string }) {
       <div className="text-center leading-6">
         <img src="/assets/images/logo.png" width={64} height={64} className="mx-auto" alt="logo" />
         <div>Transmission: {session.data?.version ?? '-'}, RPC: {session.data?.['rpc-version'] ?? '-'}</div>
-        <div>Web Control: 1.6.1-next (React 重制版)</div>
+        <div>Web Control: {__APP_VERSION__} (React 重制版)</div>
         <div>Copyright © 2012-2019 栽培者</div>
         <div className="py-2 flex justify-center gap-1">
           <a className="l-btn" href="https://github.com/ronggang/transmission-web-control" target="_blank" rel="noreferrer" title={L.home}>
