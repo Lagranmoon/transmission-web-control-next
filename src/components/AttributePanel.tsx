@@ -204,6 +204,9 @@ function BaseTab({ torrent }: { torrent: Torrent }) {
       {pieces && (
         <>
           <hr />
+          <div className="mb-0.5" style={{ color: 'var(--eu-text)', opacity: 0.6 }}>
+            {langName === 'zh-CN' ? '分块状态（每个方块为一个数据块，颜色越满表示该块已下载；悬停查看详情）' : 'Pieces (each block is a data piece; hover for details)'}
+          </div>
           <div id="torrent-attribute-pieces">
             {pieces.map((c, i) => (
               <i key={i} style={{ filter: `saturate(${c.rate})` }} title={c.title} />

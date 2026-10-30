@@ -180,7 +180,7 @@ export function NavPanel() {
       for (let i = 0; i < pathSegs.length; i++) {
         const seg = pathSegs[i]
         if (!seg) continue
-        pathAcc += seg
+        pathAcc = pathAcc ? pathAcc + '/' + seg : seg
         key += btoaSafe(seg)
         const info = byId.get(key) ?? snap.folders[key]
         let node = nodeMap.get(key)

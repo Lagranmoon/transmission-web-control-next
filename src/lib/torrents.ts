@@ -206,7 +206,7 @@ export function ingestTorrents(torrents: Torrent[], removed: number[] | undefine
     let path = ''
     for (const seg of segs) {
       if (seg === '') continue
-      path += seg
+      path = path ? path + '/' + seg : seg
       folderkey += validTreeKey(seg)
       let node = folders[folderkey]
       if (!node) {
