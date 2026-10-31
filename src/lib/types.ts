@@ -149,7 +149,12 @@ export const STATUS = {
   actively: 101,
 } as const
 
-export const TRACKER_STATUS = { inactive: 0, waiting: 1, queued: 2, active: 3 } as const
+export const TRACKER_STATUS = {
+  inactive: 0,
+  waiting: 1,
+  queued: 2,
+  active: 3,
+} as const
 
 export const TORRENT_FIELDS = {
   base: 'id,name,status,hashString,totalSize,percentDone,addedDate,trackerStats,leftUntilDone,rateDownload,rateUpload,recheckProgress,peersGettingFromUs,peersSendingToUs,uploadRatio,uploadedEver,downloadedEver,downloadDir,error,errorString,doneDate,queuePosition,activityDate',

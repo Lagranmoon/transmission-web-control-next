@@ -3,7 +3,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { DataGrid, makeColumnMenuItems, type GridColumn } from './DataGrid'
 import { useMenu, LinkButton, Icon } from './ui'
 import { useLang } from '../i18n'
-import { useConfig, userConfigStore, persistUserConfig, configStore, saveConfig } from '../lib/config'
+import {
+  useConfig,
+  userConfigStore,
+  persistUserConfig,
+  saveConfig,
+} from '../lib/config'
 import { useStore } from '../lib/store'
 import { getSnapshot } from '../lib/torrents'
 import { useTorrents, useRpcMutation } from '../api/queries'
@@ -43,8 +48,12 @@ export function TorrentList() {
     return result
   }, [lang, userCfg])
 
-  const [sortName, setSortName] = useState<string | null>(userCfg.torrentList.sortName)
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(userCfg.torrentList.sortOrder)
+  const [sortName, setSortName] = useState<string | null>(
+    userCfg.torrentList.sortName,
+  )
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(
+    userCfg.torrentList.sortOrder,
+  )
   const [page, setPage] = useState(1)
 
   /** 当前导航节点对应的数据源 */
@@ -57,7 +66,11 @@ export function TorrentList() {
       const folder = s.folders[id]
       if (!folder) return []
       if (!config.hideSubfolders) return folder.torrents
-      return folder.torrents.filter((t) => t.downloadDir.replace(/[\\|/]/g, '') === folder.path.replace(/[\\|/]/g, ''))
+      return folder.torrents.filter(
+        (t) =>
+          t.downloadDir.replace(/[\\|/]/g, '') ===
+          folder.path.replace(/[\\|/]/g, ''),
+      )
     }
     if (id.startsWith('label-')) {
       const idx = Number(id.slice('label-'.length))
@@ -104,7 +117,7 @@ export function TorrentList() {
       return row
     })
     if (sortName) {
-      list.sort(compareField(sortName, sortOrder) as (a: Row, b: Row) => number)
+      list.sort(compareField(sortName, sortOrder))
     }
     return list
   }, [source, sortName, sortOrder])
@@ -117,7 +130,9 @@ export function TorrentList() {
 
   // 当前页超出总页数时回落（如删除末页种子、调大 pageSize 后），避免切片越界导致列表空白
   useEffect(() => {
-    setPage((p) => Math.min(p, Math.max(1, Math.ceil(rows.length / config.pageSize))))
+    setPage((p) =>
+      Math.min(p, Math.max(1, Math.ceil(rows.length / config.pageSize))),
+    )
   }, [rows.length, config.pageSize])
 
   const persistColumns = (cols: GridColumn<Row>[]) => {
@@ -126,18 +141,28 @@ export function TorrentList() {
         ...userCfg.torrentList,
         fields: cols
           .filter((c) => c.field !== 'ck')
-          .map((c) => ({ field: c.field, width: c.width ?? 80, hidden: !!c.hidden })),
+          .map((c) => ({
+            field: c.field,
+            width: c.width ?? 80,
+            hidden: !!c.hidden,
+          })),
       },
     })
   }
 
-  const checkedKeys = useMemo(() => new Set<string | number>(ui.checkedIds), [ui.checkedIds])
+  const checkedKeys = useMemo(
+    () => new Set<string | number>(ui.checkedIds),
+    [ui.checkedIds],
+  )
 
   const onRowContextMenu = (e: React.MouseEvent, row: Row) => {
     e.preventDefault()
     // 对齐原 onRowContextMenu（system.js:820-829）：simpleCheckMode 或无勾选时才选中当前行，
     // 已有勾选集（多选）时保留并对其操作，避免覆盖用户的多选
-    const ids = !config.simpleCheckMode && ui.checkedIds.length > 0 ? ui.checkedIds : [row.id]
+    const ids =
+      !config.simpleCheckMode && ui.checkedIds.length > 0
+        ? ui.checkedIds
+        : [row.id]
     if (ids !== ui.checkedIds) {
       uiStore.set({ checkedIds: ids })
     }
@@ -145,46 +170,141 @@ export function TorrentList() {
     const singleTorrent = ids.length === 1 ? snap.all[ids[0]] : null
     const isStopped = singleTorrent?.status === STATUS.stopped
     // 校验中（check/checkwait）：与工具栏一致，暂停/获取更多 Peer 禁用（原项目 system.js:1160-1166）
-    const isChecking = singleTorrent?.status === STATUS.check || singleTorrent?.status === STATUS.checkwait
+    const isChecking =
+      singleTorrent?.status === STATUS.check ||
+      singleTorrent?.status === STATUS.checkwait
     const doIds = (method: string, args?: Record<string, unknown>) =>
-      mutation.mutate({ method, args: { ids, ...args } }, { onSuccess: () => uiStore.set({ checkedIds: [] }) })
+      mutation.mutate(
+        { method, args: { ids, ...args } },
+        { onSuccess: () => uiStore.set({ checkedIds: [] }) },
+      )
     show(
       [
-        { id: 'start', text: t.start, icon: 'tr-icon-start', disabled: !(!singleTorrent || isStopped), onClick: () => doIds('torrent-start') },
-        { id: 'pause', text: t.pause, icon: 'tr-icon-pause', disabled: !(!singleTorrent || !isStopped) || isChecking, onClick: () => doIds('torrent-stop') },
+        {
+          id: 'start',
+          text: t.start,
+          icon: 'tr-icon-start',
+          disabled: !(!singleTorrent || isStopped),
+          onClick: () => doIds('torrent-start'),
+        },
+        {
+          id: 'pause',
+          text: t.pause,
+          icon: 'tr-icon-pause',
+          disabled: !(!singleTorrent || !isStopped) || isChecking,
+          onClick: () => doIds('torrent-stop'),
+        },
         '-',
-        { id: 'rename', text: t.rename, icon: 'tr-icon-rename', disabled: !singleTorrent, onClick: () => openDialog('torrent-rename', { id: singleTorrent!.id }) },
-        { id: 'remove', text: t.remove, icon: 'tr-icon-delete', onClick: () => openDialog('torrent-remove-confirm', { ids }) },
-        { id: 'recheck', text: t.recheck, icon: 'tr-icon-data-check', disabled: !(!singleTorrent || isStopped), onClick: () => {
-          // 与工具栏一致的确认（TopBar recheck）：已下载过（percentDone>0）的种子先确认再校验
-          const needConfirm = ids.some((i) => (snap.all[i]?.percentDone ?? 0) > 0)
-          if (!needConfirm || window.confirm(lang.toolbar.tip['recheck-confirm'])) doIds('torrent-verify')
-        } },
+        {
+          id: 'rename',
+          text: t.rename,
+          icon: 'tr-icon-rename',
+          disabled: !singleTorrent,
+          onClick: () =>
+            openDialog('torrent-rename', { id: singleTorrent!.id }),
+        },
+        {
+          id: 'remove',
+          text: t.remove,
+          icon: 'tr-icon-delete',
+          onClick: () => openDialog('torrent-remove-confirm', { ids }),
+        },
+        {
+          id: 'recheck',
+          text: t.recheck,
+          icon: 'tr-icon-data-check',
+          disabled: !(!singleTorrent || isStopped),
+          onClick: () => {
+            // 与工具栏一致的确认（TopBar recheck）：已下载过（percentDone>0）的种子先确认再校验
+            const needConfirm = ids.some(
+              (i) => (snap.all[i]?.percentDone ?? 0) > 0,
+            )
+            if (
+              !needConfirm ||
+              window.confirm(lang.toolbar.tip['recheck-confirm'])
+            )
+              doIds('torrent-verify')
+          },
+        },
         '-',
-        { id: 'morepeers', text: t.tip['more-peers'], icon: 'tr-icon-more-peers', disabled: !singleTorrent || isStopped || isChecking, onClick: () => doIds('torrent-reannounce') },
-        { id: 'changeDownloadDir', text: t.tip['change-download-dir'], icon: 'tr-icon-folder-change', onClick: () => openDialog('torrent-changeDownloadDir', { ids }) },
-        { id: 'copyPath', text: t.tip['copy-path-to-clipboard'], icon: 'tr-icon-clippy', onClick: () => {
-          const paths = Array.from(new Set(ids.map((i) => snap.all[i]?.downloadDir).filter(Boolean)))
-          copyToClipboard(paths.join('\n'))
-        } },
+        {
+          id: 'morepeers',
+          text: t.tip['more-peers'],
+          icon: 'tr-icon-more-peers',
+          disabled: !singleTorrent || isStopped || isChecking,
+          onClick: () => doIds('torrent-reannounce'),
+        },
+        {
+          id: 'changeDownloadDir',
+          text: t.tip['change-download-dir'],
+          icon: 'tr-icon-folder-change',
+          onClick: () => openDialog('torrent-changeDownloadDir', { ids }),
+        },
+        {
+          id: 'copyPath',
+          text: t.tip['copy-path-to-clipboard'],
+          icon: 'tr-icon-clippy',
+          onClick: () => {
+            const paths = Array.from(
+              new Set(ids.map((i) => snap.all[i]?.downloadDir).filter(Boolean)),
+            )
+            copyToClipboard(paths.join('\n'))
+          },
+        },
         '-',
-        { id: 'menu-queue-move-top', text: lang.menus.queue['move-top'], icon: 'tr-icon-top', disabled: !singleTorrent, onClick: () => doIds('queue-move-top') },
-        { id: 'menu-queue-move-up', text: lang.menus.queue['move-up'], icon: 'tr-icon-up', disabled: !singleTorrent, onClick: () => doIds('queue-move-up') },
-        { id: 'menu-queue-move-down', text: lang.menus.queue['move-down'], icon: 'tr-icon-down', disabled: !singleTorrent, onClick: () => doIds('queue-move-down') },
-        { id: 'menu-queue-move-bottom', text: lang.menus.queue['move-bottom'], icon: 'tr-icon-bottom', disabled: !singleTorrent, onClick: () => doIds('queue-move-bottom') },
-        { id: 'magnetLink', text: lang.menus.copyMagnetLink, icon: 'tr-icon-labels', onClick: async () => {
-          try {
-            const result = await rpc<{ torrents: { id: number; magnetLink: string }[] }>('torrent-get', {
-              fields: ['id', 'magnetLink'],
-              ids,
-            })
-            const links = (result.torrents || []).map((x) => x.magnetLink).join('\n')
-            copyToClipboard(links)
-            showToast(lang.menus.copyMagnetLink)
-          } catch (e) {
-            showToast(String((e as Error).message))
-          }
-        } },
+        {
+          id: 'menu-queue-move-top',
+          text: lang.menus.queue['move-top'],
+          icon: 'tr-icon-top',
+          disabled: !singleTorrent,
+          onClick: () => doIds('queue-move-top'),
+        },
+        {
+          id: 'menu-queue-move-up',
+          text: lang.menus.queue['move-up'],
+          icon: 'tr-icon-up',
+          disabled: !singleTorrent,
+          onClick: () => doIds('queue-move-up'),
+        },
+        {
+          id: 'menu-queue-move-down',
+          text: lang.menus.queue['move-down'],
+          icon: 'tr-icon-down',
+          disabled: !singleTorrent,
+          onClick: () => doIds('queue-move-down'),
+        },
+        {
+          id: 'menu-queue-move-bottom',
+          text: lang.menus.queue['move-bottom'],
+          icon: 'tr-icon-bottom',
+          disabled: !singleTorrent,
+          onClick: () => doIds('queue-move-bottom'),
+        },
+        {
+          id: 'magnetLink',
+          text: lang.menus.copyMagnetLink,
+          icon: 'tr-icon-labels',
+          onClick: () => {
+            // 异步逻辑保留，外层包 void 显式忽略浮动的 Promise（行为不变）
+            void (async () => {
+              try {
+                const result = await rpc<{
+                  torrents: { id: number; magnetLink: string }[]
+                }>('torrent-get', {
+                  fields: ['id', 'magnetLink'],
+                  ids,
+                })
+                const links = (result.torrents || [])
+                  .map((x) => x.magnetLink)
+                  .join('\n')
+                copyToClipboard(links)
+                showToast(lang.menus.copyMagnetLink)
+              } catch (e) {
+                showToast(String((e as Error).message))
+              }
+            })()
+          },
+        },
         ...(config.nav.labels
           ? [
               '-' as const,
@@ -194,7 +314,9 @@ export function TorrentList() {
                 icon: 'tr-icon-labels',
                 onClick: () =>
                   openDialog('torrent-setLabels', {
-                    hashs: ids.map((i) => snap.all[i]?.hashString).filter(Boolean),
+                    hashs: ids
+                      .map((i) => snap.all[i]?.hashString)
+                      .filter(Boolean),
                   }),
               },
             ]
@@ -211,7 +333,11 @@ export function TorrentList() {
     if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault()
       const ids =
-        ui.checkedIds.length > 0 ? ui.checkedIds.slice() : ui.currentTorrentId > 0 ? [ui.currentTorrentId] : []
+        ui.checkedIds.length > 0
+          ? ui.checkedIds.slice()
+          : ui.currentTorrentId > 0
+            ? [ui.currentTorrentId]
+            : []
       if (ids.length > 0) openDialog('torrent-remove-confirm', { ids })
     } else if (e.key === 'Enter') {
       e.preventDefault()
@@ -229,7 +355,10 @@ export function TorrentList() {
           title={stopped ? lang.toolbar.tip.start : lang.toolbar.tip.pause}
           onClick={(e) => {
             e.stopPropagation()
-            mutation.mutate({ method: stopped ? 'torrent-start' : 'torrent-stop', args: { ids: [row.id] } })
+            mutation.mutate({
+              method: stopped ? 'torrent-start' : 'torrent-stop',
+              args: { ids: [row.id] },
+            })
           }}
         />
         <LinkButton
@@ -252,15 +381,23 @@ export function TorrentList() {
           <LinkButton
             icon={config.autoExpandAttribute ? 'icon-enabled' : 'icon-disabled'}
             title={lang['torrent-head'].buttons.autoExpandAttribute}
-            onClick={() => saveConfig({ autoExpandAttribute: !config.autoExpandAttribute })}
+            onClick={() =>
+              saveConfig({ autoExpandAttribute: !config.autoExpandAttribute })
+            }
           />
           {/* C5 列设置入口：弹出与表头右键完全相同的列显隐菜单（复用 makeColumnMenuItems） */}
           <LinkButton
             icon="tr-icon-system-config"
             title={langName === 'zh-CN' ? '列设置' : 'Columns'}
             onClick={(e) => {
-              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-              show(makeColumnMenuItems(columns, persistColumns), rect.left, rect.bottom + 2)
+              const rect = (
+                e.currentTarget as HTMLElement
+              ).getBoundingClientRect()
+              show(
+                makeColumnMenuItems(columns, persistColumns),
+                rect.left,
+                rect.bottom + 2,
+              )
             }}
           />
         </span>
@@ -272,16 +409,25 @@ export function TorrentList() {
           keyField="id"
           rownumbers
           checkedKeys={checkedKeys}
-          onCheck={(keys) => uiStore.set({ checkedIds: Array.from(keys).map(Number) })}
+          onCheck={(keys) =>
+            uiStore.set({ checkedIds: Array.from(keys).map(Number) })
+          }
           selectedKey={ui.currentTorrentId}
           onSelect={(row) => uiStore.set({ currentTorrentId: row.id })}
           sortName={sortName}
           sortOrder={sortOrder}
           onSort={(field) => {
-            const nextOrder: 'asc' | 'desc' = sortName === field && sortOrder === 'asc' ? 'desc' : 'asc'
+            const nextOrder: 'asc' | 'desc' =
+              sortName === field && sortOrder === 'asc' ? 'desc' : 'asc'
             setSortName(field)
             setSortOrder(nextOrder)
-            persistUserConfig({ torrentList: { fields: userCfg.torrentList.fields, sortName: field, sortOrder: nextOrder } })
+            persistUserConfig({
+              torrentList: {
+                fields: userCfg.torrentList.fields,
+                sortName: field,
+                sortOrder: nextOrder,
+              },
+            })
           }}
           onColumnsChange={persistColumns}
           pagination={config.pagination}
@@ -300,12 +446,24 @@ export function TorrentList() {
         />
         {/* B7 空状态：当前过滤结果为空时，表格中央给出大图标 + 文案 + 添加入口 */}
         {rows.length === 0 && (
-          <div className="absolute inset-0 z-[5] flex select-none flex-col items-center justify-center gap-2" style={{ color: '#999' }}>
-            <i className="iconfont tr-icon-folder" style={{ fontSize: 54, lineHeight: 1 }} aria-hidden />
+          <div
+            className="absolute inset-0 z-[5] flex select-none flex-col items-center justify-center gap-2"
+            style={{ color: '#999' }}
+          >
+            <i
+              className="iconfont tr-icon-folder"
+              style={{ fontSize: 54, lineHeight: 1 }}
+              aria-hidden
+            />
             <div>{langName === 'zh-CN' ? '暂无种子' : 'No torrents'}</div>
             <a
               className="l-btn"
-              style={{ border: '1px solid var(--eu-border)', background: 'var(--eu-menu-bg, #fff)', color: 'var(--eu-text)', padding: '0 10px' }}
+              style={{
+                border: '1px solid var(--eu-border)',
+                background: 'var(--eu-menu-bg, #fff)',
+                color: 'var(--eu-text)',
+                padding: '0 10px',
+              }}
               title={lang.toolbar.tip['add-torrent']}
               role="button"
               tabIndex={0}

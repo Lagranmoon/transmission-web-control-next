@@ -7,9 +7,21 @@ import { useConfig } from '../lib/config'
 import { useTorrentDetails, useRpcMutation, useTorrents } from '../api/queries'
 import { getSnapshot } from '../lib/torrents'
 import { useUi, showToast, openDialog } from '../lib/ui'
-import { compareField, formatLongTime, formatSize, getTotalTime } from '../lib/format'
+import {
+  compareField,
+  formatLongTime,
+  formatSize,
+  getTotalTime,
+} from '../lib/format'
 import { getTimeUnits } from '../i18n'
-import { STATUS, type FileStat, type Peer, type Torrent, type TorrentFile, type TrackerStat } from '../lib/types'
+import {
+  STATUS,
+  type FileStat,
+  type Peer,
+  type Torrent,
+  type TorrentFile,
+  type TrackerStat,
+} from '../lib/types'
 import { ProgressBar } from '../lib/columns'
 import { geoEnabled, lookupFlag, lookupDetail, flagSrc } from '../lib/peers-geo'
 
@@ -26,7 +38,7 @@ export function AttributePanel() {
   useTorrents()
   // 详情与列表基础数据合并（totalSize/remainingTime 等来自基础轮询）
   const base = getSnapshot().all[ui.currentTorrentId]
-  const torrent = detail && base ? { ...base, ...detail } : detail ?? base
+  const torrent = detail && base ? { ...base, ...detail } : (detail ?? base)
 
   const tabs = [
     { id: 'base', title: lang.torrent.attribute.tabs.base },
@@ -40,7 +52,11 @@ export function AttributePanel() {
     <div className="eu-tabs eu-tabs-left h-full">
       <div className="eu-tabs-header">
         {tabs.map((t) => (
-          <div key={t.id} className={`eu-tabs-tab ${tab === t.id ? 'selected' : ''}`} onClick={() => setTab(t.id)}>
+          <div
+            key={t.id}
+            className={`eu-tabs-tab ${tab === t.id ? 'selected' : ''}`}
+            onClick={() => setTab(t.id)}
+          >
             {t.title}
           </div>
         ))}
@@ -86,7 +102,7 @@ function BaseTab({ torrent }: { torrent: Torrent }) {
     const pieceCount = torrent.pieceCount
     const pieceSize = torrent.pieceSize || 0
     const flags: boolean[] = [] // true = 缺失
-    for (let p = 0; p < pieceCount; ) {
+    for (let p = 0; p < pieceCount;) {
       const bset = bin.charCodeAt(p >> 3)
       for (let test = 0x80; test > 0 && p < pieceCount; test = test >> 1, ++p) {
         flags.push((bset & test) === 0)
@@ -104,7 +120,8 @@ function BaseTab({ torrent }: { torrent: Torrent }) {
         if (flags[piece]) --done
       }
       const percent = Math.floor((done * 100) / perCell)
-      const ramp = Math.floor((Math.pow(128, percent / 100) - 1) * (100 / 127)) / 100
+      const ramp =
+        Math.floor((Math.pow(128, percent / 100) - 1) * (100 / 127)) / 100
       cells.push({ title: `${cellSize} x ${percent}%`, rate: ramp })
     }
     return cells
@@ -125,11 +142,22 @@ function BaseTab({ torrent }: { torrent: Torrent }) {
             <td className="title">{L.downloadDir}</td>
             <td colSpan={3}>
               {torrent.downloadDir}{' '}
-              <LinkButton icon="tr-icon-folder-change" title={lang.toolbar.tip['change-download-dir']} onClick={() => openDialog('torrent-changeDownloadDir', { ids: [torrent.id] })} />
-              <LinkButton icon="tr-icon-clippy" title={lang.toolbar.tip['copy-path-to-clipboard']} onClick={() => {
-                navigator.clipboard?.writeText(torrent.downloadDir)
-                showToast(lang.toolbar.tip['copy-path-to-clipboard'])
-              }} />
+              <LinkButton
+                icon="tr-icon-folder-change"
+                title={lang.toolbar.tip['change-download-dir']}
+                onClick={() =>
+                  openDialog('torrent-changeDownloadDir', { ids: [torrent.id] })
+                }
+              />
+              <LinkButton
+                icon="tr-icon-clippy"
+                title={lang.toolbar.tip['copy-path-to-clipboard']}
+                onClick={() => {
+                  // 显式忽略写入结果，保持原有“失败不提示”的行为
+                  void navigator.clipboard?.writeText(torrent.downloadDir)
+                  showToast(lang.toolbar.tip['copy-path-to-clipboard'])
+                }}
+              />
             </td>
           </tr>
           <tr>
@@ -140,7 +168,9 @@ function BaseTab({ torrent }: { torrent: Torrent }) {
           </tr>
           {torrent.error !== 0 && (
             <tr>
-              <td className="title" style={{ color: 'red' }}>{L.errorString}</td>
+              <td className="title" style={{ color: 'red' }}>
+                {L.errorString}
+              </td>
               <td colSpan={3} style={{ color: 'red' }}>
                 {torrent.errorString} ({torrent.error})
               </td>
@@ -155,7 +185,11 @@ function BaseTab({ torrent }: { torrent: Torrent }) {
           <tr>
             <td className="title">{L.leftUntilDone}</td>
             <td>
-              {formatSize(torrent.leftUntilDone)} ({remaining >= 3153600000000 ? '∞' : getTotalTime(remaining, timeUnits)})
+              {formatSize(torrent.leftUntilDone)} (
+              {remaining >= 3153600000000
+                ? '∞'
+                : getTotalTime(remaining, timeUnits)}
+              )
             </td>
             <td className="title">{L.completeSize}</td>
             <td>{formatSize(completeSize)}</td>
@@ -186,21 +220,28 @@ function BaseTab({ torrent }: { torrent: Torrent }) {
           </tr>
           <tr>
             <td className="title">{L.comment}</td>
-            <td colSpan={3}>
-              {linkify(torrent.comment || '')}
-            </td>
+            <td colSpan={3}>{linkify(torrent.comment || '')}</td>
           </tr>
         </tbody>
       </table>
       {pieces && (
         <>
           <hr />
-          <div className="mb-0.5" style={{ color: 'var(--eu-text)', opacity: 0.6 }}>
-            {langName === 'zh-CN' ? '分块状态（每个方块为一个数据块，颜色越满表示该块已下载；悬停查看详情）' : 'Pieces (each block is a data piece; hover for details)'}
+          <div
+            className="mb-0.5"
+            style={{ color: 'var(--eu-text)', opacity: 0.6 }}
+          >
+            {langName === 'zh-CN'
+              ? '分块状态（每个方块为一个数据块，颜色越满表示该块已下载；悬停查看详情）'
+              : 'Pieces (each block is a data piece; hover for details)'}
           </div>
           <div id="torrent-attribute-pieces">
             {pieces.map((c, i) => (
-              <i key={i} style={{ filter: `saturate(${c.rate})` }} title={c.title} />
+              <i
+                key={i}
+                style={{ filter: `saturate(${c.rate})` }}
+                title={c.title}
+              />
             ))}
           </div>
         </>
@@ -214,7 +255,13 @@ function linkify(text: string): React.ReactNode {
   const parts = text.split(/(https?:\/\/[^\s]+)/g)
   return parts.map((p, i) =>
     /^https?:\/\//.test(p) ? (
-      <a key={i} href={p} target="_blank" rel="noreferrer" className="text-[#0066cc] underline">
+      <a
+        key={i}
+        href={p}
+        target="_blank"
+        rel="noreferrer"
+        className="text-[#0066cc] underline"
+      >
         {p}
       </a>
     ) : (
@@ -236,17 +283,23 @@ function ServersTab({ torrent }: { torrent: Torrent }) {
     return (torrent.trackerStats || []).map((s: TrackerStat) => ({
       id: s.id,
       announce: s.announce,
-      announceState: stateText[String(s.announceState) as keyof typeof stateText] ?? s.announceState,
+      announceState:
+        stateText[String(s.announceState) as keyof typeof stateText] ??
+        s.announceState,
       lastAnnounceResult: s.lastAnnounceResult,
-      downloadCount: s.downloadCount === -1 ? lang.public['text-unknown'] : s.downloadCount,
-      leecherCount: s.leecherCount === -1 ? lang.public['text-unknown'] : s.leecherCount,
-      seederCount: s.seederCount === -1 ? lang.public['text-unknown'] : s.seederCount,
+      downloadCount:
+        s.downloadCount === -1 ? lang.public['text-unknown'] : s.downloadCount,
+      leecherCount:
+        s.leecherCount === -1 ? lang.public['text-unknown'] : s.leecherCount,
+      seederCount:
+        s.seederCount === -1 ? lang.public['text-unknown'] : s.seederCount,
       lastAnnounceSucceeded: boolText[String(s.lastAnnounceSucceeded)],
       lastAnnounceTime: formatLongTime(s.lastAnnounceTime),
       lastAnnounceTimedOut: boolText[String(s.lastAnnounceTimedOut)],
       nextAnnounceTime: formatLongTime(s.nextAnnounceTime),
     }))
-  }, [torrent.trackerStats, lang])
+    // stateText/boolText 均为 lang 的派生值，lang 已在依赖中，补齐不会引入额外重算
+  }, [torrent.trackerStats, lang, stateText, boolText])
 
   const columns: GridColumn<TrackerRow>[] = [
     { field: 'announce', title: F.announce, width: 300 },
@@ -255,12 +308,29 @@ function ServersTab({ torrent }: { torrent: Torrent }) {
     { field: 'downloadCount', title: F.downloadCount, width: 60 },
     { field: 'leecherCount', title: F.leecherCount, width: 60 },
     { field: 'seederCount', title: F.seederCount, width: 60 },
-    { field: 'lastAnnounceSucceeded', title: F.lastAnnounceSucceeded, width: 60, align: 'center' },
-    { field: 'lastAnnounceTime', title: F.lastAnnounceTime, width: 130, align: 'center' },
-    { field: 'nextAnnounceTime', title: F.nextAnnounceTime, width: 130, align: 'center' },
+    {
+      field: 'lastAnnounceSucceeded',
+      title: F.lastAnnounceSucceeded,
+      width: 60,
+      align: 'center',
+    },
+    {
+      field: 'lastAnnounceTime',
+      title: F.lastAnnounceTime,
+      width: 130,
+      align: 'center',
+    },
+    {
+      field: 'nextAnnounceTime',
+      title: F.nextAnnounceTime,
+      width: 130,
+      align: 'center',
+    },
   ]
 
-  const selTracker = (torrent.trackerStats || []).find((s: TrackerStat) => s.id === selected)
+  const selTracker = (torrent.trackerStats || []).find(
+    (s: TrackerStat) => s.id === selected,
+  )
 
   return (
     <div className="h-full flex flex-col">
@@ -276,7 +346,13 @@ function ServersTab({ torrent }: { torrent: Torrent }) {
         emptyText="…"
       />
       <div className="flex gap-1 p-1 border-t border-[var(--eu-line)] bg-[var(--eu-toolbar)]">
-        <LinkButton icon="tr-icon-plus" title={lang.torrent.attribute.tip['button-tracker-add']} onClick={() => openDialog('torrent-attribute-add-tracker', { ids: [torrent.id] })} />
+        <LinkButton
+          icon="tr-icon-plus"
+          title={lang.torrent.attribute.tip['button-tracker-add']}
+          onClick={() =>
+            openDialog('torrent-attribute-add-tracker', { ids: [torrent.id] })
+          }
+        />
         <LinkButton
           icon="tr-icon-replace"
           title={lang.torrent.attribute.tip['button-tracker-edit']}
@@ -288,9 +364,12 @@ function ServersTab({ torrent }: { torrent: Torrent }) {
               mutation.mutate(
                 {
                   method: 'torrent-set',
-                  args: { ids: [torrent.id], trackerReplace: [selTracker.id, url] },
+                  args: {
+                    ids: [torrent.id],
+                    trackerReplace: [selTracker.id, url],
+                  },
                 },
-                { onError: (e) => showToast(String((e as Error).message)) },
+                { onError: (e) => showToast(String(e.message)) },
               )
             }
           }}
@@ -301,13 +380,17 @@ function ServersTab({ torrent }: { torrent: Torrent }) {
           disabled={!selTracker}
           onClick={() => {
             if (!selTracker) return
-            if (window.confirm(lang.torrent.attribute.other['tracker-remove-confim'])) {
+            if (
+              window.confirm(
+                lang.torrent.attribute.other['tracker-remove-confim'],
+              )
+            ) {
               mutation.mutate(
                 {
                   method: 'torrent-set',
                   args: { ids: [torrent.id], trackerRemove: [selTracker.id] },
                 },
-                { onError: (e) => showToast(String((e as Error).message)) },
+                { onError: (e) => showToast(String(e.message)) },
               )
             }
           }}
@@ -339,7 +422,10 @@ function FilesTab({ torrent }: { torrent: Torrent }) {
     const nameLen = torrent.name.length + 1
     let list: FileRow[] = files.map((f, i) => {
       const stats0 = stats[i]
-      const pct = ((stats0.bytesCompleted / Math.max(1, f.length)) * 100).toFixed(2)
+      const pct = (
+        (stats0.bytesCompleted / Math.max(1, f.length)) *
+        100
+      ).toFixed(2)
       return {
         index: i,
         name: f.name === torrent.name ? f.name : f.name.slice(nameLen),
@@ -358,14 +444,54 @@ function FilesTab({ torrent }: { torrent: Torrent }) {
     }
     if (sortName) list.sort(compareField(sortName, sortOrder))
     return list
-  }, [torrent.files, torrent.fileStats, filter, lang, sortName, sortOrder])
+    // S 随 lang 同步更替（以 S 为依赖即可）；torrent.name 变化必然伴随 torrent 对象/文件数组更替
+  }, [
+    torrent.files,
+    torrent.fileStats,
+    torrent.name,
+    filter,
+    sortName,
+    sortOrder,
+    S,
+  ])
 
   const columns: GridColumn<FileRow>[] = [
     { field: 'ck', title: '', checkbox: true, allowCustom: false, width: 28 },
     { field: 'name', title: F.name, width: 300, sortable: true },
-    { field: 'length', title: F.length, width: 80, align: 'right', sortable: true, formatter: (v) => formatSize(Number(v)) },
-    { field: 'percentDone', title: F.percentDone, width: 70, align: 'center', sortable: true, formatter: (v) => <ProgressBar progress={Number(v)} torrent={{ status: STATUS.download, recheckProgress: 0, warning: undefined, error: 0 }} /> },
-    { field: 'bytesCompleted', title: F.bytesCompleted, width: 80, align: 'right', sortable: true, formatter: (v) => formatSize(Number(v)) },
+    {
+      field: 'length',
+      title: F.length,
+      width: 80,
+      align: 'right',
+      sortable: true,
+      formatter: (v) => formatSize(Number(v)),
+    },
+    {
+      field: 'percentDone',
+      title: F.percentDone,
+      width: 70,
+      align: 'center',
+      sortable: true,
+      formatter: (v) => (
+        <ProgressBar
+          progress={Number(v)}
+          torrent={{
+            status: STATUS.download,
+            recheckProgress: 0,
+            warning: undefined,
+            error: 0,
+          }}
+        />
+      ),
+    },
+    {
+      field: 'bytesCompleted',
+      title: F.bytesCompleted,
+      width: 80,
+      align: 'right',
+      sortable: true,
+      formatter: (v) => formatSize(Number(v)),
+    },
     { field: 'wanted', title: F.wanted, width: 70, align: 'center' },
     {
       field: 'priority',
@@ -388,7 +514,7 @@ function FilesTab({ torrent }: { torrent: Torrent }) {
           ? { ids: [torrent.id], 'files-wanted': files }
           : { ids: [torrent.id], 'files-unwanted': files },
       },
-      { onError: (e) => showToast(String((e as Error).message)) },
+      { onError: (e) => showToast(String(e.message)) },
     )
     setChecked(new Set())
   }
@@ -396,18 +522,38 @@ function FilesTab({ torrent }: { torrent: Torrent }) {
   const setPriority = (priority: number) => {
     const files = Array.from(checked).map(Number)
     if (!files.length) return
-    const key = priority === 1 ? 'priority-high' : priority === -1 ? 'priority-low' : 'priority-normal'
+    const key =
+      priority === 1
+        ? 'priority-high'
+        : priority === -1
+          ? 'priority-low'
+          : 'priority-normal'
     mutation.mutate(
       { method: 'torrent-set', args: { ids: [torrent.id], [key]: files } },
-      { onError: (e) => showToast(String((e as Error).message)) },
+      { onError: (e) => showToast(String(e.message)) },
     )
     setChecked(new Set())
   }
 
   const filterTemplates = [
-    { value: '.*', text: (lang.torrent.attribute['filter-template-text'] as Record<string, string>)['1'] },
-    { value: '____padding_file', text: (lang.torrent.attribute['filter-template-text'] as Record<string, string>)['2'] },
-    { value: '(.*\\.(url|lnk)$)|(RARBG_DO_NOT_MIRROR\\.exe)|(____padding_file)', text: (lang.torrent.attribute['filter-template-text'] as Record<string, string>)['3'] },
+    {
+      value: '.*',
+      text: (
+        lang.torrent.attribute['filter-template-text'] as Record<string, string>
+      )['1'],
+    },
+    {
+      value: '____padding_file',
+      text: (
+        lang.torrent.attribute['filter-template-text'] as Record<string, string>
+      )['2'],
+    },
+    {
+      value: '(.*\\.(url|lnk)$)|(RARBG_DO_NOT_MIRROR\\.exe)|(____padding_file)',
+      text: (
+        lang.torrent.attribute['filter-template-text'] as Record<string, string>
+      )['3'],
+    },
   ]
 
   return (
@@ -422,7 +568,8 @@ function FilesTab({ torrent }: { torrent: Torrent }) {
         sortName={sortName}
         sortOrder={sortOrder}
         onSort={(field) => {
-          const nextOrder: 'asc' | 'desc' = sortName === field && sortOrder === 'asc' ? 'desc' : 'asc'
+          const nextOrder: 'asc' | 'desc' =
+            sortName === field && sortOrder === 'asc' ? 'desc' : 'asc'
           setSortName(field)
           setSortOrder(nextOrder)
         }}
@@ -433,13 +580,23 @@ function FilesTab({ torrent }: { torrent: Torrent }) {
         emptyText="…"
       />
       <div className="flex gap-1 p-1 border-t border-[var(--eu-line)] bg-[var(--eu-toolbar)] items-center">
-        <LinkButton icon="icon-allow" title={lang.torrent.attribute.tip['button-allow']} onClick={() => setFilesWanted(true)} />
-        <LinkButton icon="icon-deny" title={lang.torrent.attribute.tip['button-deny']} onClick={() => setFilesWanted(false)} />
+        <LinkButton
+          icon="icon-allow"
+          title={lang.torrent.attribute.tip['button-allow']}
+          onClick={() => setFilesWanted(true)}
+        />
+        <LinkButton
+          icon="icon-deny"
+          title={lang.torrent.attribute.tip['button-deny']}
+          onClick={() => setFilesWanted(false)}
+        />
         <LinkButton
           icon="icon-flag-edit"
           title={lang.torrent.attribute.tip['button-priority']}
           onClick={(e) => {
-            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+            const rect = (
+              e.currentTarget as HTMLElement
+            ).getBoundingClientRect()
             show(
               [
                 { id: '0', text: P['0'], onClick: () => setPriority(0) },
@@ -451,7 +608,9 @@ function FilesTab({ torrent }: { torrent: Torrent }) {
             )
           }}
         />
-        <span className="ml-2 text-gray-500">{lang.torrent.attribute.tip['button-filter']}：</span>
+        <span className="ml-2 text-gray-500">
+          {lang.torrent.attribute.tip['button-filter']}：
+        </span>
         <select
           className="border border-[var(--eu-border)] rounded h-[22px]"
           value={filterTemplates.some((t) => t.value === filter) ? filter : ''}
@@ -489,7 +648,9 @@ function PeersTab({ torrent }: { torrent: Torrent }) {
   const S = lang.torrent.attribute.status as Record<string, string>
   const [page, setPage] = useState(1)
   // IP 归属地/国旗（启用后异步补齐）
-  const [geo, setGeo] = useState<Record<string, { flag: string | null; detail: string | null }>>({})
+  const [geo, setGeo] = useState<
+    Record<string, { flag: string | null; detail: string | null }>
+  >({})
   // peer 地址集合签名：轮询产生的新数组引用内容未变时跳过重查，避免每轮全表重渲染
   const peersKey = (torrent.peers || []).map((p) => p.address).join('\n')
   const lastPeersKey = useRef('')
@@ -501,11 +662,17 @@ function PeersTab({ torrent }: { torrent: Torrent }) {
     lastPeersKey.current = peersKey
     let alive = true
     void (async () => {
-      const next: Record<string, { flag: string | null; detail: string | null }> = {}
+      const next: Record<
+        string,
+        { flag: string | null; detail: string | null }
+      > = {}
       // 与原版一致：每个 peer 并行查询，而不是逐个串行排队
       await Promise.all(
         peers.map(async (p) => {
-          next[p.address] = { flag: await lookupFlag(p.address), detail: await lookupDetail(p.address) }
+          next[p.address] = {
+            flag: await lookupFlag(p.address),
+            detail: await lookupDetail(p.address),
+          }
         }),
       )
       if (alive) setGeo(next)
@@ -521,9 +688,22 @@ function PeersTab({ torrent }: { torrent: Torrent }) {
       const addr = (
         <>
           {g?.flag && (
-            <img src={flagSrc(g.flag)} alt={g.flag} title={g.detail || g.flag} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+            <img
+              src={flagSrc(g.flag)}
+              alt={g.flag}
+              title={g.detail || g.flag}
+              style={{ verticalAlign: 'middle', marginRight: 4 }}
+            />
           )}
-          {g ? (g.detail ? <span title={g.detail}>{p.address}</span> : p.address) : p.address}
+          {g ? (
+            g.detail ? (
+              <span title={g.detail}>{p.address}</span>
+            ) : (
+              p.address
+            )
+          ) : (
+            p.address
+          )}
         </>
       )
       return {
@@ -537,7 +717,8 @@ function PeersTab({ torrent }: { torrent: Torrent }) {
         rateToPeer: p.rateToPeer,
       }
     })
-  }, [torrent.peers, lang, geo])
+    // S 随 lang 同步更替，以 S 为依赖即可（重算时机不变）
+  }, [torrent.peers, geo, S])
 
   const columns: GridColumn<PeerRow>[] = [
     { field: 'address', title: F.address, width: 160 },
@@ -545,9 +726,37 @@ function PeersTab({ torrent }: { torrent: Torrent }) {
     { field: 'isUTP', title: F.isUTP, width: 60, align: 'center' },
     { field: 'clientName', title: F.clientName, width: 140 },
     { field: 'flagStr', title: F.flagStr, width: 60 },
-    { field: 'progress', title: F.progress, width: 70, align: 'center', formatter: (v) => <ProgressBar progress={Number((Number(v) * 100).toFixed(2))} torrent={{ status: STATUS.download, recheckProgress: 0, warning: undefined, error: 0 }} /> },
-    { field: 'rateToClient', title: F.rateToClient, width: 90, align: 'right', formatter: (v) => formatSize(Number(v), true, 'speed') },
-    { field: 'rateToPeer', title: F.rateToPeer, width: 90, align: 'right', formatter: (v) => formatSize(Number(v), true, 'speed') },
+    {
+      field: 'progress',
+      title: F.progress,
+      width: 70,
+      align: 'center',
+      formatter: (v) => (
+        <ProgressBar
+          progress={Number((Number(v) * 100).toFixed(2))}
+          torrent={{
+            status: STATUS.download,
+            recheckProgress: 0,
+            warning: undefined,
+            error: 0,
+          }}
+        />
+      ),
+    },
+    {
+      field: 'rateToClient',
+      title: F.rateToClient,
+      width: 90,
+      align: 'right',
+      formatter: (v) => formatSize(Number(v), true, 'speed'),
+    },
+    {
+      field: 'rateToPeer',
+      title: F.rateToPeer,
+      width: 90,
+      align: 'right',
+      formatter: (v) => formatSize(Number(v), true, 'speed'),
+    },
   ]
 
   return (
@@ -577,15 +786,21 @@ function ConfigTab({ torrent }: { torrent: Torrent }) {
     indeterminate: mode === 0,
     value: typeof mode === 'number' ? mode : undefined,
   })
-  const [downloadLimited, setDownloadLimited] = useState(!!torrent.downloadLimited)
+  const [downloadLimited, setDownloadLimited] = useState(
+    !!torrent.downloadLimited,
+  )
   const [downloadLimit, setDownloadLimit] = useState(torrent.downloadLimit ?? 0)
   const [uploadLimited, setUploadLimited] = useState(!!torrent.uploadLimited)
   const [uploadLimit, setUploadLimit] = useState(torrent.uploadLimit ?? 0)
   const [peerLimit, setPeerLimit] = useState(torrent['peer-limit'] ?? 60)
   const [seedRatioMode, setSeedRatioMode] = useState(tri(torrent.seedRatioMode))
-  const [seedRatioLimit, setSeedRatioLimit] = useState(torrent.seedRatioLimit ?? 2)
+  const [seedRatioLimit, setSeedRatioLimit] = useState(
+    torrent.seedRatioLimit ?? 2,
+  )
   const [seedIdleMode, setSeedIdleMode] = useState(tri(torrent.seedIdleMode))
-  const [seedIdleLimit, setSeedIdleLimit] = useState(torrent.seedIdleLimit ?? 30)
+  const [seedIdleLimit, setSeedIdleLimit] = useState(
+    torrent.seedIdleLimit ?? 30,
+  )
 
   const save = () => {
     const args: Record<string, unknown> = {
@@ -611,7 +826,7 @@ function ConfigTab({ torrent }: { torrent: Torrent }) {
         onError: (e) => {
           // 失败时复位保存按钮（否则永久停在 loading 且不可重试），并给出可见反馈
           setSaved('none')
-          showToast(String((e as Error).message))
+          showToast(String(e.message))
         },
       },
     )
@@ -631,7 +846,12 @@ function ConfigTab({ torrent }: { torrent: Torrent }) {
               />
             </td>
             <td width="12%">
-              <NumberSpinner value={downloadLimit} onChange={setDownloadLimit} disabled={!downloadLimited} /> KB/s
+              <NumberSpinner
+                value={downloadLimit}
+                onChange={setDownloadLimit}
+                disabled={!downloadLimited}
+              />{' '}
+              KB/s
             </td>
             <td width="38%" className="title">
               <TriStateCheckbox
@@ -640,15 +860,29 @@ function ConfigTab({ torrent }: { torrent: Torrent }) {
                 indeterminate={seedRatioMode.indeterminate}
                 onChange={() => {
                   // TriStateCheckbox 只翻转 checked，这里按当前值自算下一态：0(跟随全局) → 1(启用) → 2(禁用) → 0
-                  const cur = seedRatioMode.value ?? (seedRatioMode.indeterminate ? 0 : seedRatioMode.checked ? 1 : 2)
+                  const cur =
+                    seedRatioMode.value ??
+                    (seedRatioMode.indeterminate
+                      ? 0
+                      : seedRatioMode.checked
+                        ? 1
+                        : 2)
                   const next = (cur + 1) % 3
-                  setSeedRatioMode({ checked: next === 1, indeterminate: next === 0, value: next })
+                  setSeedRatioMode({
+                    checked: next === 1,
+                    indeterminate: next === 0,
+                    value: next,
+                  })
                 }}
                 label={L.seedRatioMode}
               />
             </td>
             <td width="12%">
-              <NumberSpinner value={seedRatioLimit} onChange={setSeedRatioLimit} disabled={seedRatioMode.value !== 1} />
+              <NumberSpinner
+                value={seedRatioLimit}
+                onChange={setSeedRatioLimit}
+                disabled={seedRatioMode.value !== 1}
+              />
             </td>
           </tr>
           <tr>
@@ -661,7 +895,12 @@ function ConfigTab({ torrent }: { torrent: Torrent }) {
               />
             </td>
             <td>
-              <NumberSpinner value={uploadLimit} onChange={setUploadLimit} disabled={!uploadLimited} /> KB/s
+              <NumberSpinner
+                value={uploadLimit}
+                onChange={setUploadLimit}
+                disabled={!uploadLimited}
+              />{' '}
+              KB/s
             </td>
             <td className="title">
               <TriStateCheckbox
@@ -670,22 +909,40 @@ function ConfigTab({ torrent }: { torrent: Torrent }) {
                 indeterminate={seedIdleMode.indeterminate}
                 onChange={() => {
                   // 同 seedRatioMode：0(跟随全局) → 1(启用) → 2(禁用) → 0
-                  const cur = seedIdleMode.value ?? (seedIdleMode.indeterminate ? 0 : seedIdleMode.checked ? 1 : 2)
+                  const cur =
+                    seedIdleMode.value ??
+                    (seedIdleMode.indeterminate
+                      ? 0
+                      : seedIdleMode.checked
+                        ? 1
+                        : 2)
                   const next = (cur + 1) % 3
-                  setSeedIdleMode({ checked: next === 1, indeterminate: next === 0, value: next })
+                  setSeedIdleMode({
+                    checked: next === 1,
+                    indeterminate: next === 0,
+                    value: next,
+                  })
                 }}
                 label={L.seedIdleMode}
               />
             </td>
             <td>
-              <NumberSpinner value={seedIdleLimit} onChange={setSeedIdleLimit} disabled={seedIdleMode.value !== 1} />{' '}
+              <NumberSpinner
+                value={seedIdleLimit}
+                onChange={setSeedIdleLimit}
+                disabled={seedIdleMode.value !== 1}
+              />{' '}
               {lang.dialog['system-config'].minutes}
             </td>
           </tr>
           <tr>
             <td className="title">{L['peer-limit']}</td>
             <td>
-              <NumberSpinner value={peerLimit} onChange={setPeerLimit} width={90} />
+              <NumberSpinner
+                value={peerLimit}
+                onChange={setPeerLimit}
+                width={90}
+              />
             </td>
             <td />
             <td />
@@ -693,11 +950,7 @@ function ConfigTab({ torrent }: { torrent: Torrent }) {
         </tbody>
       </table>
       <div className="mt-auto flex items-center gap-2 p-1 border-t border-[var(--eu-line)]">
-        <LinkButton
-          icon="icon-ok"
-          onClick={save}
-          loading={saved === 'saving'}
-        >
+        <LinkButton icon="icon-ok" onClick={save} loading={saved === 'saving'}>
           {lang.dialog.public['button-save']}
         </LinkButton>
         {saved === 'saved' && <span>{lang.public['text-saved']}</span>}

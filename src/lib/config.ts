@@ -19,7 +19,12 @@ export interface SystemConfig {
   foldersShow: boolean
   theme: string
   showBTServers: boolean
-  nav: { servers: boolean; folders: boolean; statistics: boolean; labels: boolean }
+  nav: {
+    servers: boolean
+    folders: boolean
+    statistics: boolean
+    labels: boolean
+  }
   labels: UserLabel[]
   labelMaps: Record<string, number[]>
   hideSubfolders: boolean
@@ -58,8 +63,12 @@ function load(): SystemConfig {
   try {
     const raw = localStorage.getItem(CONFIG_KEY)
     if (!raw) return { ...DEFAULT_CONFIG }
-    const parsed = JSON.parse(raw)
-    return { ...DEFAULT_CONFIG, ...parsed, nav: { ...DEFAULT_CONFIG.nav, ...(parsed.nav || {}) } }
+    const parsed = JSON.parse(raw) as Partial<SystemConfig> | null
+    return {
+      ...DEFAULT_CONFIG,
+      ...parsed,
+      nav: { ...DEFAULT_CONFIG.nav, ...(parsed?.nav || {}) },
+    }
   } catch {
     return { ...DEFAULT_CONFIG }
   }
@@ -117,7 +126,10 @@ export function loadUserConfig(): UserConfig {
       return {
         ...DEFAULT_USER_CONFIG,
         ...parsed,
-        torrentList: { ...DEFAULT_USER_CONFIG.torrentList, ...parsed?.torrentList },
+        torrentList: {
+          ...DEFAULT_USER_CONFIG.torrentList,
+          ...parsed?.torrentList,
+        },
       }
     }
   } catch {

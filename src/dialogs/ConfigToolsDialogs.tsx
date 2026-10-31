@@ -2,12 +2,23 @@
 import { useRef, useState } from 'react'
 import { Dialog, LinkButton, NumberSpinner, ComboBox } from '../components/ui'
 import { useLang } from '../i18n'
-import { closeDialog, openDialog, showToast, showProgress, hideProgress } from '../lib/ui'
+import {
+  closeDialog,
+  openDialog,
+  showToast,
+  showProgress,
+  hideProgress,
+} from '../lib/ui'
 import { useSession, useRpcMutation, useTorrents } from '../api/queries'
 import { getSnapshot } from '../lib/torrents'
-import { configStore, getFolderDictionary, setFolderDictionary, saveConfig, userConfigStore } from '../lib/config'
+import {
+  configStore,
+  getFolderDictionary,
+  setFolderDictionary,
+  saveConfig,
+  userConfigStore,
+} from '../lib/config'
 import { rpc } from '../lib/rpc'
-import type { SessionConfig } from '../lib/types'
 
 /* ---------------- 导出配置 ---------------- */
 export function ExportConfigDialog({ dialogId }: { dialogId: string }) {
@@ -49,7 +60,9 @@ export function ExportConfigDialog({ dialogId }: { dialogId: string }) {
       return
     }
     data['configVersion'] = 1
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
+      type: 'application/json',
+    })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
     a.download = 'tr-web-control-config.json'
@@ -77,15 +90,27 @@ export function ExportConfigDialog({ dialogId }: { dialogId: string }) {
     >
       <div className="dialog p-1">
         <label className="block">
-          <input type="checkbox" checked={system} onChange={(e) => setSystem(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={system}
+            onChange={(e) => setSystem(e.target.checked)}
+          />
           {L['option-system']}
         </label>
         <label className="block">
-          <input type="checkbox" checked={dictionary} onChange={(e) => setDictionary(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={dictionary}
+            onChange={(e) => setDictionary(e.target.checked)}
+          />
           {L['option-dictionary']}
         </label>
         <label className="block">
-          <input type="checkbox" checked={server} onChange={(e) => setServer(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={server}
+            onChange={(e) => setServer(e.target.checked)}
+          />
           {L['option-server']}
         </label>
       </div>
@@ -107,16 +132,21 @@ export function ImportConfigDialog({ dialogId }: { dialogId: string }) {
       const text = await file.text()
       const data = JSON.parse(text) as Record<string, unknown>
       if (!data || typeof data !== 'object') throw new Error('invalid')
-      if (!window.confirm(lang.dialog['system-config']['import-config-confirm'])) {
+      if (
+        !window.confirm(lang.dialog['system-config']['import-config-confirm'])
+      ) {
         setBusy(false)
         return
       }
       if (data['system']) {
         const sys = data['system'] as Record<string, unknown>
-        saveConfig(sys as Parameters<typeof saveConfig>[0])
+        saveConfig(sys)
       }
       if (data['user']) {
-        localStorage.setItem('transmission-web-control', JSON.stringify(data['user']))
+        localStorage.setItem(
+          'transmission-web-control',
+          JSON.stringify(data['user']),
+        )
       }
       if (data['dictionary-folders']) {
         setFolderDictionary(data['dictionary-folders'] as string[])
@@ -185,8 +215,14 @@ export function AutoMatchDialog({ dialogId, ids }: AutoMatchProps) {
   })
 
   const [folders, setFolders] = useState(getFolderDictionary())
-  const [mode, setMode] = useState(localStorage.getItem('auto-match-data-folder-work-mode') || '1')
-  const [interval, setInterval] = useState(Number(localStorage.getItem('auto-match-data-folder-time-interval') || 3000) / 1000)
+  const [mode, setMode] = useState(
+    localStorage.getItem('auto-match-data-folder-work-mode') || '1',
+  )
+  const [interval, setInterval] = useState(
+    Number(
+      localStorage.getItem('auto-match-data-folder-time-interval') || 3000,
+    ) / 1000,
+  )
   const [working, setWorking] = useState(false)
   const [curTorrent, setCurTorrent] = useState('')
   const [curFolder, setCurFolder] = useState('')
@@ -209,13 +245,20 @@ export function AutoMatchDialog({ dialogId, ids }: AutoMatchProps) {
       setCurFolder(`${dir} [${dirList.indexOf(dir) + 1}/${dirList.length}]`)
       const t = getSnapshot().all[id]
       if (!t || t.downloadDir === dir) continue
-      await rpc('torrent-set-location', { ids: [id], location: dir, move: false })
+      await rpc('torrent-set-location', {
+        ids: [id],
+        location: dir,
+        move: false,
+      })
       await rpc('torrent-verify', { ids: [id] })
       await sleep(interval * 1000)
-      const result = await rpc<{ torrents: { percentDone: number }[] }>('torrent-get', {
-        ids: [id],
-        fields: ['percentDone'],
-      })
+      const result = await rpc<{ torrents: { percentDone: number }[] }>(
+        'torrent-get',
+        {
+          ids: [id],
+          fields: ['percentDone'],
+        },
+      )
       if (result.torrents?.[0]?.percentDone !== 0) return true
     }
     return false
@@ -227,9 +270,14 @@ export function AutoMatchDialog({ dialogId, ids }: AutoMatchProps) {
     ignoreRef.current = false
     setWorking(true)
     // 自动匹配耗时较长：右下角浮层提示处理进度（stop() 中清除）
-    showProgress(lang.public['text-processing'].replace('%n', String(candidates.length)))
+    showProgress(
+      lang.public['text-processing'].replace('%n', String(candidates.length)),
+    )
     localStorage.setItem('auto-match-data-folder-work-mode', mode)
-    localStorage.setItem('auto-match-data-folder-time-interval', String(interval * 1000))
+    localStorage.setItem(
+      'auto-match-data-folder-time-interval',
+      String(interval * 1000),
+    )
 
     try {
       if (mode === '1') {
@@ -253,20 +301,28 @@ export function AutoMatchDialog({ dialogId, ids }: AutoMatchProps) {
           const dir = folders[i]
           setCurFolder(`${dir} [${i + 1}/${folders.length}]`)
           setCurTorrent(String(remaining.length))
-          await rpc('torrent-set-location', { ids: remaining, location: dir, move: false })
+          await rpc('torrent-set-location', {
+            ids: remaining,
+            location: dir,
+            move: false,
+          })
           await rpc('torrent-verify', { ids: remaining })
           await sleep(interval * 1000)
-          const result = await rpc<{ torrents: { id: number; status: number; percentDone: number }[] }>(
-            'torrent-get',
-            { ids: remaining, fields: ['status', 'id', 'percentDone'] },
-          )
+          const result = await rpc<{
+            torrents: { id: number; status: number; percentDone: number }[]
+          }>('torrent-get', {
+            ids: remaining,
+            fields: ['status', 'id', 'percentDone'],
+          })
           remaining = (result.torrents || [])
             .filter((t) => t.status === 0 && t.percentDone === 0)
             .map((t) => t.id)
         }
       }
     } catch (e) {
-      showToast(`${lang.error['data-post-error']}: ${String((e as Error).message)}`)
+      showToast(
+        `${lang.error['data-post-error']}: ${String((e as Error).message)}`,
+      )
     }
     stop()
   }
@@ -308,7 +364,9 @@ export function AutoMatchDialog({ dialogId, ids }: AutoMatchProps) {
         <table>
           <tbody>
             <tr>
-              <td width="30%" className="title">{L['torrent-count']}</td>
+              <td width="30%" className="title">
+                {L['torrent-count']}
+              </td>
               <td>{candidates.length}</td>
               <td width="20%" />
             </tr>
@@ -316,7 +374,14 @@ export function AutoMatchDialog({ dialogId, ids }: AutoMatchProps) {
               <td className="title">{L['folder-count']}</td>
               <td>{folders.length}</td>
               <td>
-                <LinkButton icon="tr-icon-system-config" onClick={() => openDialog('auto-match-dictionary', { onSaved: (f: string[]) => setFolders(f) })}>
+                <LinkButton
+                  icon="tr-icon-system-config"
+                  onClick={() =>
+                    openDialog('auto-match-dictionary', {
+                      onSaved: (f: string[]) => setFolders(f),
+                    })
+                  }
+                >
                   {lang.dialog.public['button-config']}
                 </LinkButton>
               </td>
@@ -339,18 +404,33 @@ export function AutoMatchDialog({ dialogId, ids }: AutoMatchProps) {
             <tr>
               <td className="title">{L['time-interval']}</td>
               <td>
-                <NumberSpinner value={interval} onChange={setInterval} width={200} min={0.5} />
+                <NumberSpinner
+                  value={interval}
+                  onChange={setInterval}
+                  width={200}
+                  min={0.5}
+                />
               </td>
               <td />
             </tr>
             <tr>
-              <td className="title" colSpan={3} style={{ textAlign: 'left' }}>{L.status}</td>
+              <td className="title" colSpan={3} style={{ textAlign: 'left' }}>
+                {L.status}
+              </td>
             </tr>
             <tr style={{ display: working ? '' : 'none' }}>
               <td colSpan={3}>
-                <div className="truncate" title={curTorrent}>-&gt; {curTorrent}</div>
+                <div className="truncate" title={curTorrent}>
+                  -&gt; {curTorrent}
+                </div>
                 <div className="flex items-center">
-                  <span className="truncate" style={{ maxWidth: 400 }} title={curFolder}>-&gt; {curFolder}</span>
+                  <span
+                    className="truncate"
+                    style={{ maxWidth: 400 }}
+                    title={curFolder}
+                  >
+                    -&gt; {curFolder}
+                  </span>
                   {mode === '1' && (
                     <LinkButton
                       icon="icon-ignore"
@@ -395,7 +475,10 @@ export function AutoMatchDictionaryDialog({
           <LinkButton
             icon="icon-ok"
             onClick={() => {
-              const list = text.split('\n').map((s) => s.trim()).filter(Boolean)
+              const list = text
+                .split('\n')
+                .map((s) => s.trim())
+                .filter(Boolean)
               setFolderDictionary(list)
               onSaved?.(list)
               closeDialog(dialogId)
@@ -410,8 +493,18 @@ export function AutoMatchDictionaryDialog({
       }
     >
       <div className="dialog h-full flex flex-col">
-        <span className="tip">{(lang.dialog['system-config'].tabs as Record<string, string>)['dictionary-folders']}</span>
-        <textarea className="eu-textbox flex-1" value={text} onChange={(e) => setText(e.target.value)} />
+        <span className="tip">
+          {
+            (lang.dialog['system-config'].tabs as Record<string, string>)[
+              'dictionary-folders'
+            ]
+          }
+        </span>
+        <textarea
+          className="eu-textbox flex-1"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
       </div>
     </Dialog>
   )

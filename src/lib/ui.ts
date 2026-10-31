@@ -59,7 +59,9 @@ export function openDialog(id: string, props?: Record<string, unknown>) {
 
 export function closeDialog(id?: string) {
   const { dialogs } = uiStore.get()
-  uiStore.set({ dialogs: id ? dialogs.filter((d) => d.id !== id) : dialogs.slice(0, -1) })
+  uiStore.set({
+    dialogs: id ? dialogs.filter((d) => d.id !== id) : dialogs.slice(0, -1),
+  })
 }
 
 /* ---------------- toast（视口顶部居中浮层，多条堆叠） ---------------- */

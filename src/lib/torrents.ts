@@ -1,7 +1,7 @@
 // 种子数据层 — 移植原项目 transmission.torrents.js
 // 轮询 torrent-get（recently-active 增量），在客户端维护全量 map 并派生：
 // 状态分组 / 错误 / 警告 / 活动 / 目录树 / 服务器(tracker) 聚合 / 总大小等
-import { STATUS, type SessionStats, type Torrent, type TrackerStat } from './types'
+import { STATUS, type Torrent } from './types'
 import { getHostName, validTreeKey } from './format'
 import { configStore } from './config'
 
@@ -83,7 +83,11 @@ export function isInited() {
 }
 
 /** tracker 聚合（addTracker 移植），同时累计 leecher/seeder */
-function addTracker(item: Torrent, trackers: Record<string, TrackerInfo>, btItems: Torrent[]) {
+function addTracker(
+  item: Torrent,
+  trackers: Record<string, TrackerInfo>,
+  btItems: Torrent[],
+) {
   const trackerStats = item.trackerStats || []
   const names: string[] = []
   item.leecherCount = 0
@@ -96,7 +100,8 @@ function addTracker(item: Torrent, trackers: Record<string, TrackerInfo>, btItem
   for (const trackerInfo of trackerStats) {
     const hostName = getHostName(trackerInfo.host || trackerInfo.announce)
     let parts = hostName.split('.')
-    if (['www', 'tracker', 'announce'].includes(parts[0])) parts = parts.slice(1)
+    if (['www', 'tracker', 'announce'].includes(parts[0]))
+      parts = parts.slice(1)
     const name = parts.join('.')
     const id = 'tracker-' + name.replace(/\./g, '-')
     let tracker = trackers[id]
@@ -114,7 +119,10 @@ function addTracker(item: Torrent, trackers: Record<string, TrackerInfo>, btItem
     }
     if (!trackerInfo.lastAnnounceSucceeded && trackerInfo.announceState !== 0) {
       warnings.push(trackerInfo.lastAnnounceResult)
-      if (trackerInfo.lastAnnounceResult.toLowerCase() === 'could not connect to tracker') {
+      if (
+        trackerInfo.lastAnnounceResult.toLowerCase() ===
+        'could not connect to tracker'
+      ) {
         tracker.connected = false
       }
     }
@@ -148,7 +156,10 @@ function addTracker(item: Torrent, trackers: Record<string, TrackerInfo>, btItem
 }
 
 /** 将 torrent-get 返回结果并入全量数据并重新派生（splitid 移植） */
-export function ingestTorrents(torrents: Torrent[], removed: number[] | undefined): TorrentSnapshot {
+export function ingestTorrents(
+  torrents: Torrent[],
+  removed: number[] | undefined,
+): TorrentSnapshot {
   const prev = snapshot.all
   const datas: Record<number, Torrent> = { ...prev }
   const recentlyIds = new Set<number>()
@@ -175,9 +186,12 @@ export function ingestTorrents(torrents: Torrent[], removed: number[] | undefine
   let totalSize = 0
   let count = 0
 
-  const list = Object.values(datas).sort((a, b) => a.queuePosition - b.queuePosition)
+  const list = Object.values(datas).sort(
+    (a, b) => a.queuePosition - b.queuePosition,
+  )
   for (const item of list) {
-    if (item.uploadedEver === 0 && item.downloadedEver === 0) item.uploadRatio = -1
+    if (item.uploadedEver === 0 && item.downloadedEver === 0)
+      item.uploadRatio = -1
     item.uploadRatio = Number(item.uploadRatio) || 0
 
     const bucket = (status[item.status] ||= [])
@@ -186,8 +200,14 @@ export function ingestTorrents(torrents: Torrent[], removed: number[] | undefine
 
     // 剩余时间
     if (item.rateDownload > 0 && item.leftUntilDone > 0) {
-      item.remainingTime = Math.floor((item.leftUntilDone / item.rateDownload) * 1000)
-    } else if (item.rateDownload === 0 && item.leftUntilDone === 0 && item.totalSize !== 0) {
+      item.remainingTime = Math.floor(
+        (item.leftUntilDone / item.rateDownload) * 1000,
+      )
+    } else if (
+      item.rateDownload === 0 &&
+      item.leftUntilDone === 0 &&
+      item.totalSize !== 0
+    ) {
       item.remainingTime = 0
     } else {
       item.remainingTime = 3153600000000
@@ -210,7 +230,13 @@ export function ingestTorrents(torrents: Torrent[], removed: number[] | undefine
       folderkey += validTreeKey(seg)
       let node = folders[folderkey]
       if (!node) {
-        node = folders[folderkey] = { count: 0, torrents: [], size: 0, nodeid: folderkey, path }
+        node = folders[folderkey] = {
+          count: 0,
+          torrents: [],
+          size: 0,
+          nodeid: folderkey,
+          path,
+        }
       }
       node.torrents.push(item)
       node.count++

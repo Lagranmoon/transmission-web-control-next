@@ -29,7 +29,10 @@ export function LabelPicker({
               <a
                 key={i}
                 className="user-label-big"
-                style={{ backgroundColor: lb.color, color: getGrayLevel(lb.color) > 0.5 ? '#000' : '#fff' }}
+                style={{
+                  backgroundColor: lb.color,
+                  color: getGrayLevel(lb.color) > 0.5 ? '#000' : '#fff',
+                }}
                 onClick={() => onChange(new Set([...selected, i]))}
               >
                 {lb.name}
@@ -48,7 +51,10 @@ export function LabelPicker({
               <a
                 key={i}
                 className="user-label-big"
-                style={{ backgroundColor: lb.color, color: getGrayLevel(lb.color) > 0.5 ? '#000' : '#fff' }}
+                style={{
+                  backgroundColor: lb.color,
+                  color: getGrayLevel(lb.color) > 0.5 ? '#000' : '#fff',
+                }}
                 onClick={() => {
                   const next = new Set(selected)
                   next.delete(i)

@@ -14,7 +14,8 @@ export default function App() {
 
   // 启动时应用已保存的主题（与原版一致：默认浅色，仅手动切换生效，不跟随系统）
   useEffect(() => {
-    document.documentElement.dataset.theme = configStore.get().theme || 'default'
+    document.documentElement.dataset.theme =
+      configStore.get().theme || 'default'
   }, [])
 
   return (
@@ -36,8 +37,11 @@ function DesktopOrMobile() {
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     if (params.get('devicetype') === 'computer') return
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-    if (isMobile) navigate('/mobile', { replace: true })
+    const isMobile =
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+        navigator.userAgent,
+      )
+    if (isMobile) void navigate('/mobile', { replace: true })
   }, [navigate])
   return <RootLayout />
 }

@@ -18,9 +18,11 @@ const packs: Record<string, unknown> = {
 }
 
 export function resolveLang(pref?: string | null): string {
-  let lang = pref || localStorage.getItem('twc.lang') || navigator.language || ''
+  let lang =
+    pref || localStorage.getItem('twc.lang') || navigator.language || ''
   if (lang.includes('-')) {
-    lang = lang.split('-')[0].toLowerCase() + '-' + lang.split('-')[1].toUpperCase()
+    lang =
+      lang.split('-')[0].toLowerCase() + '-' + lang.split('-')[1].toUpperCase()
   }
   if (!packs[lang]) lang = 'en'
   localStorage.setItem('twc.lang', lang)
@@ -28,14 +30,16 @@ export function resolveLang(pref?: string | null): string {
 }
 
 export function getLangPack(lang: string): Lang {
-  const base = en as Lang
+  const base = en
   if (lang === 'en' || !packs[lang]) return base
   return deepMerge(base, packs[lang])
 }
 
 /** 时长单位随界面语言变化：中文用 天/小时/分/秒，其余用原版 d/h/m/s */
 export function getTimeUnits(name: string): TimeUnits {
-  return name === 'zh-CN' ? { d: '天', h: '小时', m: '分', s: '秒' } : { d: 'd', h: 'h', m: 'm', s: 's' }
+  return name === 'zh-CN'
+    ? { d: '天', h: '小时', m: '分', s: '秒' }
+    : { d: 'd', h: 'h', m: 'm', s: 's' }
 }
 
 export const LangContext = createContext<{ lang: Lang; name: string }>({

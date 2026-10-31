@@ -29,7 +29,8 @@ function tracker(announce: string, state = 3): TrackerStat {
 
 function hashCode(s: string): number {
   let h = 0
-  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0
+  for (let i = 0; i < s.length; i++)
+    h = (Math.imul(31, h) + s.charCodeAt(i)) | 0
   return h
 }
 
@@ -40,16 +41,22 @@ function piecesBase64(pieceCount: number, percent: number): string {
   for (let p = 0; p < haveCount; p++) {
     // 随机散布（用确定性伪随机，便于稳定渲染）
     const idx = (p * 7919 + 13) % pieceCount
-    bytes[idx >> 3] |= 0x80 >> idx % 8
+    bytes[idx >> 3] |= 0x80 >> (idx % 8)
   }
   // 尾部补齐连续片段，模拟正在下载
-  for (let p = 0; p < Math.floor(haveCount / 3); p++) bytes[p >> 3] |= 0x80 >> p % 8
+  for (let p = 0; p < Math.floor(haveCount / 3); p++)
+    bytes[p >> 3] |= 0x80 >> (p % 8)
   let bin = ''
   for (const b of bytes) bin += String.fromCharCode(b)
   return btoa(bin)
 }
 
-const DIRS = ['/downloads', '/downloads/movies', '/downloads/series', '/data/linux']
+const DIRS = [
+  '/downloads',
+  '/downloads/movies',
+  '/downloads/series',
+  '/data/linux',
+]
 
 function makeTorrent(i: number): Torrent {
   const names = [
@@ -66,15 +73,19 @@ function makeTorrent(i: number): Torrent {
   const name = names[i % names.length]
   const status = statuses[i % statuses.length]
   const totalSize = 400_000_000 + ((i * 977) % 40) * 250_000_000
-  const percent = status === 6 ? 1 : status === 0 ? (i % 5) / 5 : 0.15 + ((i * 37) % 80) / 100
+  const percent =
+    status === 6 ? 1 : status === 0 ? (i % 5) / 5 : 0.15 + ((i * 37) % 80) / 100
   const leftUntilDone = Math.max(0, Math.round(totalSize * (1 - percent)))
   const rateDownload = status === 4 ? 1_500_000 + ((i * 131) % 9) * 900_000 : 0
-  const rateUpload = status === 6 || status === 4 ? 120_000 + ((i * 53) % 7) * 80_000 : 0
+  const rateUpload =
+    status === 6 || status === 4 ? 120_000 + ((i * 53) % 7) * 80_000 : 0
   return {
     id: i + 1,
     name,
     status,
-    hashString: Array.from({ length: 40 }, (_, k) => ((i * 7 + k * 13) % 16).toString(16)).join(''),
+    hashString: Array.from({ length: 40 }, (_, k) =>
+      ((i * 7 + k * 13) % 16).toString(16),
+    ).join(''),
     totalSize,
     percentDone: percent,
     addedDate: 1730000000 + i * 86400,
@@ -102,18 +113,39 @@ function makeTorrent(i: number): Torrent {
     pieceSize: Math.floor(totalSize / 240),
     pieces: piecesBase64(240, percent),
     files: [
-      { bytesCompleted: Math.round(totalSize * percent), length: totalSize, name },
-      { bytesCompleted: Math.round(totalSize * 0.9 * percent), length: Math.round(totalSize * 0.9), name: name + '/sample.mkv' },
+      {
+        bytesCompleted: Math.round(totalSize * percent),
+        length: totalSize,
+        name,
+      },
+      {
+        bytesCompleted: Math.round(totalSize * 0.9 * percent),
+        length: Math.round(totalSize * 0.9),
+        name: name + '/sample.mkv',
+      },
       { bytesCompleted: 0, length: 15_000_000, name: name + '/cover.jpg' },
     ],
     fileStats: [
-      { bytesCompleted: Math.round(totalSize * percent), wanted: true, priority: 1 },
-      { bytesCompleted: Math.round(totalSize * 0.9 * percent), wanted: true, priority: 0 },
+      {
+        bytesCompleted: Math.round(totalSize * percent),
+        wanted: true,
+        priority: 1,
+      },
+      {
+        bytesCompleted: Math.round(totalSize * 0.9 * percent),
+        wanted: true,
+        priority: 0,
+      },
       { bytesCompleted: 0, wanted: false, priority: -1 },
     ],
     peers: Array.from({ length: 4 }, (_, k) => ({
       address: `10.0.${i}.${k + 2}`,
-      clientName: ['qBittorrent 4.6', 'Transmission 4.0', 'Deluge 2.1', 'μTorrent 3.6'][k % 4],
+      clientName: [
+        'qBittorrent 4.6',
+        'Transmission 4.0',
+        'Deluge 2.1',
+        'μTorrent 3.6',
+      ][k % 4],
       flagStr: 'DUT',
       isDownloadingFrom: true,
       isEncrypted: true,
@@ -133,7 +165,9 @@ function makeTorrent(i: number): Torrent {
   }
 }
 
-let torrents: Torrent[] = Array.from({ length: MOCK_COUNT }, (_, i) => makeTorrent(i))
+let torrents: Torrent[] = Array.from({ length: MOCK_COUNT }, (_, i) =>
+  makeTorrent(i),
+)
 let session = {
   version: '4.0.6',
   'rpc-version': 17,
@@ -187,7 +221,9 @@ function stats(): SessionStats {
   const down = torrents.reduce((s, x) => s + x.rateDownload, 0)
   const up = torrents.reduce((s, x) => s + x.rateUpload, 0)
   return {
-    activeTorrentCount: torrents.filter((x) => x.rateDownload > 0 || x.rateUpload > 0).length,
+    activeTorrentCount: torrents.filter(
+      (x) => x.rateDownload > 0 || x.rateUpload > 0,
+    ).length,
     downloadSpeed: down,
     uploadSpeed: up,
     pausedTorrentCount: torrents.filter((x) => x.status === 0).length,
@@ -217,8 +253,14 @@ export function getMockState(method: string) {
       if (x.status === 4 && x.leftUntilDone > 0) {
         const advance = x.rateDownload * 5
         x.leftUntilDone = Math.max(0, x.leftUntilDone - advance)
-        x.percentDone = Math.min(1, (x.totalSize - x.leftUntilDone) / x.totalSize)
-        x.rateDownload = Math.max(100_000, x.rateDownload + ((statsTick % 5) - 2) * 300_000)
+        x.percentDone = Math.min(
+          1,
+          (x.totalSize - x.leftUntilDone) / x.totalSize,
+        )
+        x.rateDownload = Math.max(
+          100_000,
+          x.rateDownload + ((statsTick % 5) - 2) * 300_000,
+        )
         if (x.leftUntilDone === 0) {
           x.status = 6
           x.doneDate = Math.floor(Date.now() / 1000)
@@ -239,14 +281,17 @@ export function getMockState(method: string) {
   }
 }
 
-export async function mockMutate(method: string, args: Record<string, any>): Promise<unknown> {
+export async function mockMutate(
+  method: string,
+  args: Record<string, unknown>,
+): Promise<unknown> {
   await new Promise((r) => setTimeout(r, 200))
   switch (method) {
     case 'session-set':
-      session = { ...session, ...args }
+      session = { ...session, ...(args as Partial<typeof session>) }
       return {}
     case 'torrent-add': {
-      const filename: string = args.filename || ''
+      const filename = (args.filename as string | undefined) || ''
       let name = filename
       if (name.startsWith('magnet:')) {
         const dn = name.match(/dn=([^&]+)/)
@@ -263,7 +308,8 @@ export async function mockMutate(method: string, args: Record<string, any>): Pro
       t.status = args.paused ? 0 : 4
       t.percentDone = 0
       t.leftUntilDone = t.totalSize
-      t.downloadDir = args['download-dir'] || session['download-dir']
+      t.downloadDir =
+        (args['download-dir'] as string | undefined) || session['download-dir']
       torrents.push(t)
       return { 'torrent-added': { id, hashString: t.hashString, name } }
     }
@@ -271,10 +317,12 @@ export async function mockMutate(method: string, args: Record<string, any>): Pro
     case 'torrent-stop':
     case 'torrent-verify':
     case 'torrent-reannounce': {
-      const ids: number[] = args.ids ?? torrents.map((x) => x.id)
+      const ids: number[] =
+        (args.ids as number[] | null | undefined) ?? torrents.map((x) => x.id)
       for (const t of torrents) {
         if (!ids.includes(t.id)) continue
-        if (method === 'torrent-start' && t.status === 0) t.status = t.percentDone >= 1 ? 6 : 4
+        if (method === 'torrent-start' && t.status === 0)
+          t.status = t.percentDone >= 1 ? 6 : 4
         if (method === 'torrent-stop') t.status = 0
         if (method === 'torrent-verify') {
           t.status = 2
@@ -284,12 +332,12 @@ export async function mockMutate(method: string, args: Record<string, any>): Pro
       return {}
     }
     case 'torrent-remove': {
-      const ids: number[] = args.ids || []
+      const ids: number[] = (args.ids as number[] | undefined) || []
       torrents = torrents.filter((x) => !ids.includes(x.id))
       return {}
     }
     case 'torrent-set': {
-      const ids: number[] = args.ids || []
+      const ids: number[] = (args.ids as number[] | undefined) || []
       for (const t of torrents) {
         if (!ids.includes(t.id)) continue
         Object.assign(t, args)
@@ -297,24 +345,28 @@ export async function mockMutate(method: string, args: Record<string, any>): Pro
       return {}
     }
     case 'torrent-rename-path': {
-      const ids: number[] = args.ids || []
-      for (const t of torrents) if (ids.includes(t.id)) t.name = String(args.name)
+      const ids: number[] = (args.ids as number[] | undefined) || []
+      for (const t of torrents)
+        if (ids.includes(t.id)) t.name = String(args.name)
       return {}
     }
     case 'torrent-set-location': {
-      const ids: number[] = args.ids || []
-      for (const t of torrents) if (ids.includes(t.id)) t.downloadDir = String(args.location)
+      const ids: number[] = (args.ids as number[] | undefined) || []
+      for (const t of torrents)
+        if (ids.includes(t.id)) t.downloadDir = String(args.location)
       return {}
     }
     case 'queue-move-top':
     case 'queue-move-up':
     case 'queue-move-down':
     case 'queue-move-bottom': {
-      const ids: number[] = args.ids || []
+      const ids: number[] = (args.ids as number[] | undefined) || []
       torrents.sort((a, b) => a.queuePosition - b.queuePosition)
       const sel = torrents.filter((x) => ids.includes(x.id))
       const rest = torrents.filter((x) => !ids.includes(x.id))
-      const ordered = method.endsWith('top') ? [...sel, ...rest] : [...rest, ...sel]
+      const ordered = method.endsWith('top')
+        ? [...sel, ...rest]
+        : [...rest, ...sel]
       ordered.forEach((x, i) => (x.queuePosition = i))
       torrents = ordered
       return {}

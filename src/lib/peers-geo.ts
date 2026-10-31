@@ -39,7 +39,9 @@ export async function lookupFlag(ip: string): Promise<string | null> {
   if (flagCache.has(ip)) return flagCache.get(ip) || null
   const { enabled, token, flagUrl } = geoConfig()
   if (!enabled) return null
-  const url = flagUrl ? expandUrl(flagUrl, ip) : `https://ipinfo.io/${ip}/country?token=${token}`
+  const url = flagUrl
+    ? expandUrl(flagUrl, ip)
+    : `https://ipinfo.io/${ip}/country?token=${token}`
   const cc = await fetchText(url)
   const code = cc ? cc.toLowerCase().slice(0, 2) : ''
   flagCache.set(ip, code)

@@ -1,4 +1,5 @@
-import { defineConfig } from 'vite'
+// defineConfig 取自 vitest/config：为 Vite UserConfig 扩展 test 字段类型，Vitest 配置直接写在下方 test
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import pkg from './package.json'
@@ -15,6 +16,11 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
   plugins: [react(), tailwindcss()],
+  // Vitest：jsdom 环境跑组件测试；include 固定测试文件约定（避免误扫 repos/ 等目录）
+  test: {
+    environment: 'jsdom',
+    include: ['src/**/*.test.{ts,tsx}'],
+  },
   server: {
     proxy: {
       '/rpc': { target, changeOrigin: true },

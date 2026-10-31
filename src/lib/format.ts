@@ -3,23 +3,26 @@
 /** 两位小数 + 末尾空格（原版 formatNumber("###,###,###,###.00 ") 的 pattern 末尾空格经 fStr 追加），使 formatSize 输出 "1.50 KB" */
 function formatNumber(value: number): string {
   return (
-    value
-      .toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }) + ' '
+    value.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }) + ' '
   )
 }
 
 /** 字节数格式化；type === 'speed' 时追加 /s，与原 formatSize 行为一致 */
-export function formatSize(bytes: number | undefined, zeroToEmpty = false, type?: 'speed'): string {
+export function formatSize(
+  bytes: number | undefined,
+  zeroToEmpty = false,
+  type?: 'speed',
+): string {
   if (bytes == null) bytes = 0
   if (bytes === 0) {
     if (zeroToEmpty) return ''
     return type === 'speed' ? '0.00 KB/s' : '0.00'
   }
-  let r = 0
-  let u = 'KB'
+  let r: number
+  let u: string
   if (bytes < 1000 * 1024) {
     r = bytes / 1024
     u = 'KB'
@@ -60,7 +63,10 @@ export interface TimeUnits {
 export const EN_TIME_UNITS: TimeUnits = { d: 'd', h: 'h', m: 'm', s: 's' }
 
 /** 毫秒时长 → 本地化时长文本（原 getTotalTime） */
-export function getTotalTime(timeMs: number, units: TimeUnits = EN_TIME_UNITS): string {
+export function getTotalTime(
+  timeMs: number,
+  units: TimeUnits = EN_TIME_UNITS,
+): string {
   const days = Math.floor(timeMs / (24 * 3600 * 1000))
   const leave1 = timeMs % (24 * 3600 * 1000)
   const hours = Math.floor(leave1 / (3600 * 1000))
@@ -88,7 +94,11 @@ export function getGrayLevel(color: string): number {
   const m = color.match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i)
   if (!m) return 0
   let hex = m[1]
-  if (hex.length === 3) hex = hex.split('').map((c) => c + c).join('')
+  if (hex.length === 3)
+    hex = hex
+      .split('')
+      .map((c) => c + c)
+      .join('')
   const r = parseInt(hex.slice(0, 2), 16)
   const g = parseInt(hex.slice(2, 4), 16)
   const b = parseInt(hex.slice(4, 6), 16)
@@ -104,6 +114,10 @@ export function compareField(field: string, order: 'asc' | 'desc') {
     if (v1 == null) return 1 * dir
     if (v2 == null) return -1 * dir
     if (typeof v1 === 'string' || typeof v2 === 'string') {
+      // 此分支至少一侧是 string，null 已在上方排除；字段值实际只有 string/number。
+      // String(unknown) 触发 no-base-to-string，而任何类型断言又会被
+      // no-unnecessary-type-assertion 视为多余（String 接受 any）——两规则冲突，局部豁免。
+      // eslint-disable-next-line @typescript-eslint/no-base-to-string
       return String(v1).localeCompare(String(v2)) * dir
     }
     if (v1 < v2) return -1 * dir
@@ -135,7 +149,7 @@ function fallbackCopy(text: string) {
 export function validTreeKey(text: string): string {
   if (!text) return ''
   try {
-    return btoa(unescape(encodeURIComponent(text))).replace(/[+|\/|=]/g, '0')
+    return btoa(unescape(encodeURIComponent(text))).replace(/[+|/=]/g, '0')
   } catch {
     return text.replace(/[^a-zA-Z0-9]/g, '0')
   }
@@ -144,10 +158,14 @@ export function validTreeKey(text: string): string {
 /** 深合并（用于 en 基础语言包 + 目标语言） */
 export function deepMerge<T>(base: T, override: unknown): T {
   if (override == null) return base
-  if (typeof base !== 'object' || base === null || Array.isArray(base)) return override as T
-  if (typeof override !== 'object' || Array.isArray(override)) return override as T
-  const result: Record<string, unknown> = { ...(base as Record<string, unknown>) }
-  for (const key of Object.keys(override as Record<string, unknown>)) {
+  if (typeof base !== 'object' || base === null || Array.isArray(base))
+    return override as T
+  if (typeof override !== 'object' || Array.isArray(override))
+    return override as T
+  const result: Record<string, unknown> = {
+    ...(base as Record<string, unknown>),
+  }
+  for (const key of Object.keys(override)) {
     const bv = (base as Record<string, unknown>)[key]
     const ov = (override as Record<string, unknown>)[key]
     result[key] = bv !== undefined ? deepMerge(bv, ov) : ov

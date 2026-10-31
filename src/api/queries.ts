@@ -1,7 +1,12 @@
 // TanStack Query 查询层：会话信息、状态统计、种子列表轮询与各类变更操作
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { rpc } from '../lib/rpc'
-import { TORRENT_FIELDS, type SessionConfig, type SessionStats, type Torrent } from '../lib/types'
+import {
+  TORRENT_FIELDS,
+  type SessionConfig,
+  type SessionStats,
+  type Torrent,
+} from '../lib/types'
 import { ingestTorrents, isInited } from '../lib/torrents'
 import { configStore } from '../lib/config'
 
@@ -48,9 +53,14 @@ export function useTorrents() {
   return useQuery({
     queryKey: queryKeys.torrents,
     queryFn: async (): Promise<number> => {
-      const args: Record<string, unknown> = { fields: TORRENT_FIELDS.base.split(',') }
+      const args: Record<string, unknown> = {
+        fields: TORRENT_FIELDS.base.split(','),
+      }
       if (isInited()) args.ids = 'recently-active'
-      const result = await rpc<{ torrents: Torrent[]; removed: number[] }>('torrent-get', args)
+      const result = await rpc<{ torrents: Torrent[]; removed: number[] }>(
+        'torrent-get',
+        args,
+      )
       const snap = ingestTorrents(result.torrents || [], result.removed || [])
       return snap.version
     },
@@ -67,7 +77,8 @@ export function useTorrentDetails(id: number, enabled: boolean) {
     queryKey: queryKeys.details(id),
     enabled: enabled && id > 0,
     queryFn: async () => {
-      const fields = 'fileStats,trackerStats,peers,leftUntilDone,status,rateDownload,rateUpload,uploadedEver,uploadRatio,error,errorString,pieces,pieceCount,pieceSize,files,trackers,comment,dateCreated,creator,downloadDir,downloadLimit,downloadLimited,uploadLimit,uploadLimited,peer-limit,seedIdleLimit,seedIdleMode,seedRatioLimit,seedRatioMode'
+      const fields =
+        'fileStats,trackerStats,peers,leftUntilDone,status,rateDownload,rateUpload,uploadedEver,uploadRatio,error,errorString,pieces,pieceCount,pieceSize,files,trackers,comment,dateCreated,creator,downloadDir,downloadLimit,downloadLimited,uploadLimit,uploadLimited,peer-limit,seedIdleLimit,seedIdleMode,seedRatioLimit,seedRatioMode'
       const result = await rpc<{ torrents: Torrent[] }>('torrent-get', {
         fields: fields.split(','),
         ids: id,
@@ -101,7 +112,10 @@ export function useRpcMutation() {
       method: string
       args?: Record<string, unknown>
     }) => {
-      const result = await rpc<{ result?: string } & Record<string, unknown>>(method, args)
+      const result = await rpc<{ result?: string } & Record<string, unknown>>(
+        method,
+        args,
+      )
       return result
     },
     onSuccess: (_data, variables) => {

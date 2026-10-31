@@ -1,4 +1,4 @@
-# CI：推送/PR 时类型检查 + 构建，确保产物可构建
+# CI：推送/PR 时 lint + 单元测试 + 类型检查 + 构建
 name: CI
 on:
   push:
@@ -15,6 +15,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run lint
+      - run: npm test
       - run: npm run build
       # 产物资源必须是相对路径（可部署到 Transmission 的子目录）
       - name: Verify relative asset paths

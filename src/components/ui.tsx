@@ -18,7 +18,13 @@ import { createPortal } from 'react-dom'
 import { useProgress, useUi } from '../lib/ui'
 
 /* ---------------- 图标 ---------------- */
-export function Icon({ name, className = '' }: { name: string; className?: string }) {
+export function Icon({
+  name,
+  className = '',
+}: {
+  name: string
+  className?: string
+}) {
   return <i className={`iconfont ${name} ${className}`} aria-hidden />
 }
 
@@ -63,7 +69,8 @@ export function Tooltip({
   }, [visible, content])
 
   // 无内容时原样渲染（不包一层，不影响布局）
-  if (content === undefined || content === null || content === '') return children
+  if (content === undefined || content === null || content === '')
+    return children
 
   return (
     <>
@@ -166,6 +173,7 @@ const MenuCtx = createContext<{
   show: (items: MenuItemSpec[], x: number, y: number) => void
 }>({ show: () => {} })
 
+// eslint-disable-next-line react-refresh/only-export-components -- 自定义 hook 与 MenuProvider 同文件是有意安排
 export function useMenu() {
   return useContext(MenuCtx)
 }
@@ -200,8 +208,10 @@ export function MenuProvider({ children }: { children: ReactNode }) {
       const w = el.offsetWidth
       const h = el.offsetHeight
       let { x, y } = state
-      if (x + w > window.innerWidth - 4) x = Math.max(4, window.innerWidth - w - 4)
-      if (y + h > window.innerHeight - 4) y = Math.max(4, window.innerHeight - h - 4)
+      if (x + w > window.innerWidth - 4)
+        x = Math.max(4, window.innerWidth - w - 4)
+      if (y + h > window.innerHeight - 4)
+        y = Math.max(4, window.innerHeight - h - 4)
       el.style.left = x + 'px'
       el.style.top = y + 'px'
     }
@@ -216,7 +226,12 @@ export function MenuProvider({ children }: { children: ReactNode }) {
       {children}
       {state &&
         createPortal(
-          <div className="eu-menu" ref={ref} style={{ left: state.x, top: state.y }} onContextMenu={(e) => e.preventDefault()}>
+          <div
+            className="eu-menu"
+            ref={ref}
+            style={{ left: state.x, top: state.y }}
+            onContextMenu={(e) => e.preventDefault()}
+          >
             {state.items.map((entry, i) =>
               entry === '-' ? (
                 <div key={`sep-${i}`} className="eu-menu-sep" />
@@ -231,7 +246,11 @@ export function MenuProvider({ children }: { children: ReactNode }) {
                     entry.onClick?.()
                   }}
                 >
-                  {entry.icon ? <Icon name={entry.icon} /> : <span style={{ width: 16, display: 'inline-block' }} />}
+                  {entry.icon ? (
+                    <Icon name={entry.icon} />
+                  ) : (
+                    <span style={{ width: 16, display: 'inline-block' }} />
+                  )}
                   <span>{entry.text}</span>
                 </div>
               ),
@@ -249,7 +268,9 @@ const DIALOG_SIZE_KEY = 'twc.dialogSize.'
 const DIALOG_MIN_WIDTH = 320
 const DIALOG_MIN_HEIGHT = 160
 
-function loadDialogSize(dialogId: string): { width: number; height: number } | null {
+function loadDialogSize(
+  dialogId: string,
+): { width: number; height: number } | null {
   try {
     const raw = localStorage.getItem(DIALOG_SIZE_KEY + dialogId)
     if (!raw) return null
@@ -257,8 +278,14 @@ function loadDialogSize(dialogId: string): { width: number; height: number } | n
     if (typeof s.width !== 'number' || typeof s.height !== 'number') return null
     // 恢复时限制在当前视口内，避免小屏上打开即出界
     return {
-      width: Math.max(DIALOG_MIN_WIDTH, Math.min(s.width, window.innerWidth - 16)),
-      height: Math.max(DIALOG_MIN_HEIGHT, Math.min(s.height, window.innerHeight - 16)),
+      width: Math.max(
+        DIALOG_MIN_WIDTH,
+        Math.min(s.width, window.innerWidth - 16),
+      ),
+      height: Math.max(
+        DIALOG_MIN_HEIGHT,
+        Math.min(s.height, window.innerHeight - 16),
+      ),
     }
   } catch {
     return null
@@ -293,8 +320,8 @@ export function Dialog({
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
   const dragRef = useRef<{ dx: number; dy: number } | null>(null)
   // 上次拖出的尺寸（打开时恢复）
-  const [size, setSize] = useState<{ width: number; height: number } | null>(() =>
-    dialogId ? loadDialogSize(dialogId) : null,
+  const [size, setSize] = useState<{ width: number; height: number } | null>(
+    () => (dialogId ? loadDialogSize(dialogId) : null),
   )
   const effWidth = size?.width ?? width
   const effHeight = size?.height ?? height
@@ -327,14 +354,22 @@ export function Dialog({
     if (e.button !== 0) return
     e.preventDefault()
     e.stopPropagation()
-    const rect = (e.currentTarget.closest('.eu-dialog') as HTMLElement).getBoundingClientRect()
+    const rect = (
+      e.currentTarget.closest('.eu-dialog') as HTMLElement
+    ).getBoundingClientRect()
     const startX = e.clientX
     const startY = e.clientY
     let w = rect.width
     let h = rect.height
     const move = (ev: MouseEvent) => {
-      w = Math.max(DIALOG_MIN_WIDTH, Math.min(rect.width + ev.clientX - startX, window.innerWidth - 8))
-      h = Math.max(DIALOG_MIN_HEIGHT, Math.min(rect.height + ev.clientY - startY, window.innerHeight - 8))
+      w = Math.max(
+        DIALOG_MIN_WIDTH,
+        Math.min(rect.width + ev.clientX - startX, window.innerWidth - 8),
+      )
+      h = Math.max(
+        DIALOG_MIN_HEIGHT,
+        Math.min(rect.height + ev.clientY - startY, window.innerHeight - 8),
+      )
       setSize({ width: w, height: h })
     }
     const up = () => {
@@ -342,7 +377,10 @@ export function Dialog({
       window.removeEventListener('mouseup', up)
       if (dialogId) {
         try {
-          localStorage.setItem(DIALOG_SIZE_KEY + dialogId, JSON.stringify({ width: w, height: h }))
+          localStorage.setItem(
+            DIALOG_SIZE_KEY + dialogId,
+            JSON.stringify({ width: w, height: h }),
+          )
         } catch {
           // 隐私模式等写入失败时静默忽略
         }
@@ -368,12 +406,18 @@ export function Dialog({
         ref={(el) => {
           if (el && !pos && !el.style.left) {
             const rect = el.getBoundingClientRect()
-            el.style.left = Math.max(8, (window.innerWidth - rect.width) / 2) + 'px'
-            el.style.top = Math.max(8, (window.innerHeight - rect.height) / 2 - 30) + 'px'
+            el.style.left =
+              Math.max(8, (window.innerWidth - rect.width) / 2) + 'px'
+            el.style.top =
+              Math.max(8, (window.innerHeight - rect.height) / 2 - 30) + 'px'
           }
         }}
       >
-        <div className="eu-dialog-header" onMouseDown={onDragStart} style={{ cursor: 'move', userSelect: 'none' }}>
+        <div
+          className="eu-dialog-header"
+          onMouseDown={onDragStart}
+          style={{ cursor: 'move', userSelect: 'none' }}
+        >
           <span style={{ float: 'left' }}>{title}</span>
           <span
             className="eu-tool"
@@ -385,8 +429,12 @@ export function Dialog({
           </span>
         </div>
         <div className="eu-dialog-body">{children}</div>
-        {footer !== undefined && <div className="eu-dialog-footer">{footer}</div>}
-        {resizable && <div className="eu-dialog-resizer" onMouseDown={onResizeStart} />}
+        {footer !== undefined && (
+          <div className="eu-dialog-footer">{footer}</div>
+        )}
+        {resizable && (
+          <div className="eu-dialog-resizer" onMouseDown={onResizeStart} />
+        )}
       </div>
     </>,
     document.body,
@@ -442,8 +490,18 @@ export function Pagination({
 }) {
   const pages = Math.max(1, Math.ceil(total / pageSize))
   const cur = Math.min(page, pages)
-  const btn = (label: ReactNode, disabled: boolean, go: number, title: string) => (
-    <LinkButton disabled={disabled} onClick={() => onPageChange(go)} title={title} className="!px-1">
+  const btn = (
+    label: ReactNode,
+    disabled: boolean,
+    go: number,
+    title: string,
+  ) => (
+    <LinkButton
+      disabled={disabled}
+      onClick={() => onPageChange(go)}
+      title={title}
+      className="!px-1"
+    >
       {label}
     </LinkButton>
   )
@@ -470,9 +528,7 @@ export function Pagination({
           ))}
         </select>
       )}
-      <span className="eu-pagination-info">
-        共 {total} 条
-      </span>
+      <span className="eu-pagination-info">共 {total} 条</span>
     </div>
   )
 }
@@ -493,7 +549,8 @@ export function NumberSpinner({
   width?: number
   disabled?: boolean
 }) {
-  const clamp = (v: number) => Math.min(max ?? Infinity, Math.max(min ?? -Infinity, v))
+  const clamp = (v: number) =>
+    Math.min(max ?? Infinity, Math.max(min ?? -Infinity, v))
   // 键入走本地字符串草稿（不做中间态提交，负号/清空可自由输入），
   // blur/Enter 时经 clamp 一次性提交，与点击/箭头路径统一收敛到 [min,max]
   const [draft, setDraft] = useState<string | null>(null)
@@ -619,7 +676,11 @@ export function SwitchButton({
     >
       <span
         className="inline-flex rounded-full overflow-hidden border border-[var(--eu-border)]"
-        style={{ width: 56, height: 20, background: checked ? '#fff' : 'var(--eu-grid-head-bottom)' }}
+        style={{
+          width: 56,
+          height: 20,
+          background: checked ? '#fff' : 'var(--eu-grid-head-bottom)',
+        }}
       >
         <span
           className="flex items-center justify-center h-full transition-all"
@@ -684,14 +745,18 @@ export function ComboBox({
   let lastGroup: string | undefined
 
   return (
-    <div ref={boxRef} className="relative inline-block" style={{ width, ...style }}>
+    <div
+      ref={boxRef}
+      className="relative inline-block"
+      style={{ width, ...style }}
+    >
       <div
         className={`eu-textbox flex items-center justify-between ${disabled ? 'opacity-60' : 'cursor-pointer'}`}
         onClick={() => !disabled && setOpen((o) => !o)}
       >
         <input
           className="flex-1 outline-none bg-transparent min-w-0"
-          value={editable && open ? filter : current?.text ?? value}
+          value={editable && open ? filter : (current?.text ?? value)}
           placeholder={placeholder}
           readOnly={!editable || !open || disabled}
           onChange={(e) => setFilter(e.target.value)}
@@ -712,21 +777,42 @@ export function ComboBox({
           className="absolute z-[9998] bg-[var(--eu-surface)] text-[var(--eu-text)] border border-[var(--eu-border)] rounded-b shadow-md max-h-[260px] overflow-auto"
           style={{ top: '100%', left: 0, right: 0, minWidth: width }}
         >
-          {editable && value && filter === '' && !visible.some((o) => o.value === value) && (
-            <div className="px-2 py-1 cursor-pointer hover:bg-[var(--eu-hover)]" onClick={() => { onChange(value); setOpen(false) }}>
-              {value}
-            </div>
-          )}
+          {editable &&
+            value &&
+            filter === '' &&
+            !visible.some((o) => o.value === value) && (
+              <div
+                className="px-2 py-1 cursor-pointer hover:bg-[var(--eu-hover)]"
+                onClick={() => {
+                  onChange(value)
+                  setOpen(false)
+                }}
+              >
+                {value}
+              </div>
+            )}
           {/* 手输文本未与选项完全一致时补一行可点的“按输入提交”，避免只能靠回车 */}
-          {editable && filter !== '' && !visible.some((o) => o.text === filter) && (
-            <div className="px-2 py-1 cursor-pointer hover:bg-[var(--eu-hover)]" onClick={() => { onChange(filter); setOpen(false); setFilter('') }}>
-              {filter}
-            </div>
-          )}
+          {editable &&
+            filter !== '' &&
+            !visible.some((o) => o.text === filter) && (
+              <div
+                className="px-2 py-1 cursor-pointer hover:bg-[var(--eu-hover)]"
+                onClick={() => {
+                  onChange(filter)
+                  setOpen(false)
+                  setFilter('')
+                }}
+              >
+                {filter}
+              </div>
+            )}
           {visible.map((o) => {
-            const groupEl = o.group && o.group !== lastGroup ? (
-              <div className="px-2 py-0.5 text-gray-500 bg-[var(--eu-toolbar)]">{(lastGroup = o.group)}</div>
-            ) : null
+            const groupEl =
+              o.group && o.group !== lastGroup ? (
+                <div className="px-2 py-0.5 text-gray-500 bg-[var(--eu-toolbar)]">
+                  {(lastGroup = o.group)}
+                </div>
+              ) : null
             return (
               <div key={o.value}>
                 {groupEl}

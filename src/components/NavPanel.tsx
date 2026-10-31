@@ -14,7 +14,9 @@ function moreInfos(count: number, size?: number): ReactNode {
   return (
     <>
       {count > 0 && <span className="nav-torrents-number"> ({count})</span>}
-      {size && size > 0 && <span className="nav-total-size">[{formatSize(size)}]</span>}
+      {size && size > 0 && (
+        <span className="nav-total-size">[{formatSize(size)}]</span>
+      )}
     </>
   )
 }
@@ -24,7 +26,9 @@ export function NavPanel() {
   const config = useConfig()
   const ui = useUi()
   const stats = useStats()
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(['torrent-all']))
+  const [expanded, setExpanded] = useState<Set<string>>(
+    () => new Set(['torrent-all']),
+  )
   // 数据版本订阅
   useTorrents()
   const snap = getSnapshot()
@@ -33,16 +37,83 @@ export function NavPanel() {
     const t = lang.tree
     const s = snap.status
     const statusChildren: TreeNodeData[] = [
-      { id: 'downloading', text: <>{t.downloading}{moreInfos(s[STATUS.download]?.length ?? 0)}</>, iconCls: 'tr-icon-download' },
-      { id: 'paused', text: <>{t.paused}{moreInfos(s[STATUS.stopped]?.length ?? 0)}</>, iconCls: 'tr-icon-pause2' },
-      { id: 'sending', text: <>{t.sending}{moreInfos(s[STATUS.seed]?.length ?? 0)}</>, iconCls: 'tr-icon-upload' },
-      { id: 'check', text: <>{t.check}{moreInfos(s[STATUS.check]?.length ?? 0)}</>, iconCls: 'tr-icon-data-check' },
-      { id: 'actively', text: <>{t.actively}{moreInfos(snap.actively.length)}</>, iconCls: 'tr-icon-actively' },
-      { id: 'error', text: <>{t.error}{moreInfos(snap.error.length)}</>, iconCls: 'tr-icon-errors' },
-      { id: 'warning', text: <>{t.warning}{moreInfos(snap.warning.length)}</>, iconCls: 'tr-icon-warning' },
+      {
+        id: 'downloading',
+        text: (
+          <>
+            {t.downloading}
+            {moreInfos(s[STATUS.download]?.length ?? 0)}
+          </>
+        ),
+        iconCls: 'tr-icon-download',
+      },
+      {
+        id: 'paused',
+        text: (
+          <>
+            {t.paused}
+            {moreInfos(s[STATUS.stopped]?.length ?? 0)}
+          </>
+        ),
+        iconCls: 'tr-icon-pause2',
+      },
+      {
+        id: 'sending',
+        text: (
+          <>
+            {t.sending}
+            {moreInfos(s[STATUS.seed]?.length ?? 0)}
+          </>
+        ),
+        iconCls: 'tr-icon-upload',
+      },
+      {
+        id: 'check',
+        text: (
+          <>
+            {t.check}
+            {moreInfos(s[STATUS.check]?.length ?? 0)}
+          </>
+        ),
+        iconCls: 'tr-icon-data-check',
+      },
+      {
+        id: 'actively',
+        text: (
+          <>
+            {t.actively}
+            {moreInfos(snap.actively.length)}
+          </>
+        ),
+        iconCls: 'tr-icon-actively',
+      },
+      {
+        id: 'error',
+        text: (
+          <>
+            {t.error}
+            {moreInfos(snap.error.length)}
+          </>
+        ),
+        iconCls: 'tr-icon-errors',
+      },
+      {
+        id: 'warning',
+        text: (
+          <>
+            {t.warning}
+            {moreInfos(snap.warning.length)}
+          </>
+        ),
+        iconCls: 'tr-icon-warning',
+      },
     ]
     // 等待中的子节点（与原逻辑一致）：[wait 状态, 父节点 id, 子节点 id]
-    const waitGroups: [waitStatus: number, parentId: string, childId: string][] = [
+    const waitGroups: [
+      waitStatus: number,
+      parentId: string,
+      childId: string,
+    ][] = [
       [STATUS.downloadwait, 'downloading', 'downloadwait'],
       [STATUS.seedwait, 'sending', 'seedwait'],
       [STATUS.checkwait, 'check', 'checkwait'],
@@ -53,7 +124,16 @@ export function NavPanel() {
       const parent = statusChildren.find((n) => n.id === parentId)
       if (parent) {
         parent.children = [
-          { id: childId, text: <>{t.wait}{moreInfos(waiting.length)}</>, iconCls: 'tr-icon-wait' },
+          {
+            id: childId,
+            text: (
+              <>
+                {t.wait}
+                {moreInfos(waiting.length)}
+              </>
+            ),
+            iconCls: 'tr-icon-wait',
+          },
         ]
       }
     }
@@ -61,12 +141,28 @@ export function NavPanel() {
     const result: TreeNodeData[] = [
       {
         id: 'torrent-all',
-        text: <>{t.all}{moreInfos(snap.count, snap.totalSize)}</>,
+        text: (
+          <>
+            {t.all}
+            {moreInfos(snap.count, snap.totalSize)}
+          </>
+        ),
         iconCls: 'tr-icon-home',
         children: [
           ...statusChildren,
           ...(ui.searchKey
-            ? [{ id: 'search-result', text: <>{t['search-result']} : {ui.searchKey} ({snap.searchResult?.length ?? 0})</>, iconCls: 'tr-icon-search' }]
+            ? [
+                {
+                  id: 'search-result',
+                  text: (
+                    <>
+                      {t['search-result']} : {ui.searchKey} (
+                      {snap.searchResult?.length ?? 0})
+                    </>
+                  ),
+                  iconCls: 'tr-icon-search',
+                },
+              ]
             : []),
         ],
       },
@@ -80,7 +176,12 @@ export function NavPanel() {
       const bt = trackers.filter((x) => x.isBT)
       const serverChildren: TreeNodeData[] = normal.map((tr) => ({
         id: tr.nodeid,
-        text: <>{tr.name}{moreInfos(tr.count, tr.size)}</>,
+        text: (
+          <>
+            {tr.name}
+            {moreInfos(tr.count, tr.size)}
+          </>
+        ),
         iconCls: tr.connected ? 'tr-icon-server' : 'tr-icon-server-error',
       }))
       if (config.showBTServers && bt.length) {
@@ -90,7 +191,12 @@ export function NavPanel() {
           iconCls: 'tr-icon-bt',
           children: bt.map((tr) => ({
             id: tr.nodeid,
-            text: <>{tr.name}{moreInfos(tr.count, tr.size)}</>,
+            text: (
+              <>
+                {tr.name}
+                {moreInfos(tr.count, tr.size)}
+              </>
+            ),
             iconCls: tr.connected ? 'tr-icon-server' : 'tr-icon-server-error',
           })),
         })
@@ -103,7 +209,13 @@ export function NavPanel() {
         // 数据已就绪但无 tracker（磁力链无 tracker / showBTServers=false）时渲染空
         // children，对齐原版每次刷新 removeTreeNode("servers-loading") 的效果
         children: !isInited()
-          ? [{ id: 'servers-loading', text: t.status.loading, iconCls: 'tree-loading' }]
+          ? [
+              {
+                id: 'servers-loading',
+                text: t.status.loading,
+                iconCls: 'tree-loading',
+              },
+            ]
           : serverChildren,
       })
     }
@@ -121,20 +233,56 @@ export function NavPanel() {
       const units = getTimeUnits(lang.name ?? 'en')
       const cs = stats.data['cumulative-stats']
       const ks = stats.data['current-stats']
-      const statItems = (s: typeof cs, units: ReturnType<typeof getTimeUnits>) => [
-        { id: 'uploadedBytes', text: `${t.statistics.uploadedBytes} ${formatSize(s.uploadedBytes)}`, iconCls: 'tr-icon-empty' },
-        { id: 'downloadedBytes', text: `${t.statistics.downloadedBytes} ${formatSize(s.downloadedBytes)}`, iconCls: 'tr-icon-empty' },
-        { id: 'filesAdded', text: `${t.statistics.filesAdded} ${s.filesAdded}`, iconCls: 'tr-icon-empty' },
-        { id: 'sessionCount', text: `${t.statistics.sessionCount} ${s.sessionCount}`, iconCls: 'tr-icon-empty' },
-        { id: 'secondsActive', text: `${t.statistics.secondsActive} ${getTotalTime(s.secondsActive * 1000, units)}`, iconCls: 'tr-icon-empty' },
+      const statItems = (
+        s: typeof cs,
+        units: ReturnType<typeof getTimeUnits>,
+      ) => [
+        {
+          id: 'uploadedBytes',
+          text: `${t.statistics.uploadedBytes} ${formatSize(s.uploadedBytes)}`,
+          iconCls: 'tr-icon-empty',
+        },
+        {
+          id: 'downloadedBytes',
+          text: `${t.statistics.downloadedBytes} ${formatSize(s.downloadedBytes)}`,
+          iconCls: 'tr-icon-empty',
+        },
+        {
+          id: 'filesAdded',
+          text: `${t.statistics.filesAdded} ${s.filesAdded}`,
+          iconCls: 'tr-icon-empty',
+        },
+        {
+          id: 'sessionCount',
+          text: `${t.statistics.sessionCount} ${s.sessionCount}`,
+          iconCls: 'tr-icon-empty',
+        },
+        {
+          id: 'secondsActive',
+          text: `${t.statistics.secondsActive} ${getTotalTime(s.secondsActive * 1000, units)}`,
+          iconCls: 'tr-icon-empty',
+        },
       ]
       result.push({
         id: 'statistics',
         text: t.statistics.title,
         iconCls: 'tr-icon-shuju',
         children: [
-          { id: 'cumulative-stats', text: t.statistics.cumulative, iconCls: 'tr-icon-folder', children: statItems(cs, units) },
-          { id: 'current-stats', text: t.statistics.current, iconCls: 'tr-icon-folder', children: statItems(ks, units).map((x) => ({ ...x, id: 'current-' + x.id })) },
+          {
+            id: 'cumulative-stats',
+            text: t.statistics.cumulative,
+            iconCls: 'tr-icon-folder',
+            children: statItems(cs, units),
+          },
+          {
+            id: 'current-stats',
+            text: t.statistics.current,
+            iconCls: 'tr-icon-folder',
+            children: statItems(ks, units).map((x) => ({
+              ...x,
+              id: 'current-' + x.id,
+            })),
+          },
         ],
       })
     }
@@ -158,7 +306,9 @@ export function NavPanel() {
   }, [lang, config, snap, stats.data, ui.searchKey])
 
   // 目录树节点（复用 folders 聚合，按 nodeid 前缀构成层级）
-  function buildFolderNodes(snap: ReturnType<typeof getSnapshot>): TreeNodeData[] {
+  function buildFolderNodes(
+    snap: ReturnType<typeof getSnapshot>,
+  ): TreeNodeData[] {
     const entries = Object.values(snap.folders)
     const roots: TreeNodeData[] = []
     const nodeMap = new Map<string, TreeNodeData>()
@@ -179,7 +329,12 @@ export function NavPanel() {
         if (!node) {
           node = {
             id: key,
-            text: <>{seg}{info ? moreInfos(info.count, info.size) : null}</>,
+            text: (
+              <>
+                {seg}
+                {info ? moreInfos(info.count, info.size) : null}
+              </>
+            ),
             iconCls: 'tr-icon-file',
             path: pathAcc,
             downDir: entry.path,
@@ -219,20 +374,32 @@ export function NavPanel() {
       </div>
       {/* 状态面板（底部，选中时展开显示） */}
       {ui.checkedIds.length > 0 && (
-        <div className="eu-panel !border-0 !border-t border-[var(--eu-border)]" style={{ height: 180 }}>
+        <div
+          className="eu-panel !border-0 !border-t border-[var(--eu-border)]"
+          style={{ height: 180 }}
+        >
           <div className="eu-panel-header">{lang.title.status}</div>
           <div className="eu-panel-body overflow-auto text-[12px] relative">
             <div className="p-1">
-              {lang.system.status.checked.replace('%n', String(ui.checkedIds.length))}
+              {lang.system.status.checked.replace(
+                '%n',
+                String(ui.checkedIds.length),
+              )}
             </div>
             <ol className="list-decimal ml-6">
               {ui.checkedIds.slice(0, 100).map((id) => (
-                <li key={id} className="truncate px-1" title={snap.all[id]?.name}>
+                <li
+                  key={id}
+                  className="truncate px-1"
+                  title={snap.all[id]?.name}
+                >
                   {snap.all[id]?.name ?? id}
                 </li>
               ))}
               {ui.checkedIds.length > 100 && (
-                <li className="text-[var(--eu-text)] opacity-60">… +{ui.checkedIds.length - 100}</li>
+                <li className="text-[var(--eu-text)] opacity-60">
+                  … +{ui.checkedIds.length - 100}
+                </li>
               )}
             </ol>
             <button
@@ -249,4 +416,3 @@ export function NavPanel() {
     </div>
   )
 }
-

@@ -27,18 +27,21 @@ export function RootLayout() {
     }
   }, [ui.currentTorrentId, config.autoExpandAttribute])
 
-  // 默认选中导航节点
+  // 默认选中导航节点（刻意仅在挂载时执行一次：补齐依赖会在配置变化时重置用户当前选择）
   useEffect(() => {
     if (!ui.currentNodeId) {
       uiStore.set({ currentNodeId: config.defaultSelectNode || 'torrent-all' })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅挂载初始化
   }, [])
 
-  // 记住选中的导航节点
+  // 记住选中的导航节点（刻意只监听 currentNodeId：config.defaultSelectNode 变化时重跑会在
+  // 非“用户切换节点”的场合（如其他窗口写入）提前触发持久化）
   useEffect(() => {
     if (ui.currentNodeId && ui.currentNodeId !== config.defaultSelectNode) {
       saveConfig({ defaultSelectNode: ui.currentNodeId })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅在用户切换节点时持久化
   }, [ui.currentNodeId])
 
   const startDrag = useCallback(
@@ -56,14 +59,21 @@ export function RootLayout() {
           lastNav = Math.min(560, Math.max(160, startNav + ev.clientX - startX))
           setNavWidth(lastNav)
         } else {
-          lastAttr = Math.min(700, Math.max(80, startAttr - (ev.clientY - startY)))
+          lastAttr = Math.min(
+            700,
+            Math.max(80, startAttr - (ev.clientY - startY)),
+          )
           setAttrHeight(lastAttr)
         }
       }
       const up = () => {
         window.removeEventListener('mousemove', move)
         window.removeEventListener('mouseup', up)
-        uiStore.set(kind === 'nav' ? { navWidth: lastNav } : { attributeHeight: lastAttr })
+        uiStore.set(
+          kind === 'nav'
+            ? { navWidth: lastNav }
+            : { attributeHeight: lastAttr },
+        )
       }
       window.addEventListener('mousemove', move)
       window.addEventListener('mouseup', up)
@@ -77,7 +87,9 @@ export function RootLayout() {
     e.preventDefault()
     dragCounter.current = 0
     setDropping(false)
-    const files = Array.from(e.dataTransfer.files).filter((f) => f.name.split('.').pop()?.toLowerCase() === 'torrent')
+    const files = Array.from(e.dataTransfer.files).filter(
+      (f) => f.name.split('.').pop()?.toLowerCase() === 'torrent',
+    )
     if (files.length) openDialog('torrent-addfile', { files })
   }
 
@@ -118,7 +130,11 @@ export function RootLayout() {
                 <div className="eu-panel h-full !border-0">
                   <div className="eu-panel-header flex items-center">
                     <span>{lang.title.attribute}</span>
-                    <span className="eu-tool" title="收起" onClick={() => uiStore.set({ attributeExpanded: false })}>
+                    <span
+                      className="eu-tool"
+                      title="收起"
+                      onClick={() => uiStore.set({ attributeExpanded: false })}
+                    >
                       <i className="iconfont tr-icon-down" />
                     </span>
                   </div>
@@ -144,7 +160,15 @@ export function RootLayout() {
       <ProgressOverlay />
       {dropping && (
         <div className="dropArea">
-          <span style={{ position: 'absolute', top: 150, left: 150, fontSize: 40, fontWeight: 'bold' }}>
+          <span
+            style={{
+              position: 'absolute',
+              top: 150,
+              left: 150,
+              fontSize: 40,
+              fontWeight: 'bold',
+            }}
+          >
             {lang.public['text-drop-title']}
           </span>
         </div>

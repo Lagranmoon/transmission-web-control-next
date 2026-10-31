@@ -40,7 +40,10 @@ interface RpcRequestBody {
   tag?: string
 }
 
-async function realRpc<T = unknown>(method: string, args: Record<string, unknown> = {}): Promise<T> {
+async function realRpc<T = unknown>(
+  method: string,
+  args: Record<string, unknown> = {},
+): Promise<T> {
   const body: RpcRequestBody = { method, arguments: args }
   const doFetch = () =>
     fetch(rpcUrl(), {
@@ -66,7 +69,7 @@ async function realRpc<T = unknown>(method: string, args: Record<string, unknown
     }
     if (res.status === 401) throw new RpcError(401, 'unauthorized')
     if (!res.ok) throw new RpcError(res.status, `http-${res.status}`)
-    const data = await res.json()
+    const data = (await res.json()) as { result?: string; arguments?: unknown }
     if (data.result !== 'success') throw new RpcError(0, data.result || 'error')
     return data.arguments as T
   } catch (e) {
@@ -78,24 +81,30 @@ async function realRpc<T = unknown>(method: string, args: Record<string, unknown
 export const rpc = USE_MOCK ? mockRpcImpl : realRpc
 
 /** 上传 .torrent 文件（rpc-version>=15 用 metainfo base64 方式，与原项目一致） */
-export async function addTorrentFile(file: File, downloadDir: string, paused: boolean) {
+export async function addTorrentFile(
+  file: File,
+  downloadDir: string,
+  paused: boolean,
+) {
   const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(reader.result as string)
+    // 保持 FileReader 的原始拒绝值（DOMException | null）不变；包装成 Error 会改变调用方捕获到的值
+    // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
     reader.onerror = () => reject(reader.error)
     reader.readAsDataURL(file)
   })
   const idx = dataUrl.indexOf('base64,')
   if (idx === -1) throw new Error('invalid file')
   const metainfo = dataUrl.substring(idx + 'base64,'.length)
-  return rpc<{ 'torrent-added'?: { id: number; hashString: string; name: string }; 'torrent-duplicate'?: unknown }>(
-    'torrent-add',
-    {
-      metainfo,
-      'download-dir': downloadDir,
-      paused,
-    },
-  )
+  return rpc<{
+    'torrent-added'?: { id: number; hashString: string; name: string }
+    'torrent-duplicate'?: unknown
+  }>('torrent-add', {
+    metainfo,
+    'download-dir': downloadDir,
+    paused,
+  })
 }
 
 /* ------------------------------------------------------------------ */
@@ -110,7 +119,10 @@ function isNumberArray(v: unknown): v is number[] {
   return Array.isArray(v) && v.every((x) => typeof x === 'number')
 }
 
-async function mockRpcImpl<T = unknown>(method: string, args: Record<string, unknown> = {}): Promise<T> {
+async function mockRpcImpl<T = unknown>(
+  method: string,
+  args: Record<string, unknown> = {},
+): Promise<T> {
   const m = (obj: unknown) => obj as T
   const { getMockState, mockMutate } = await import('./mock')
   const state = getMockState(method)
@@ -121,6 +133,8 @@ async function mockRpcImpl<T = unknown>(method: string, args: Record<string, unk
     case 'session-stats':
       return m(state.stats)
     case 'free-space': {
+      // 与原实现一致按 String() 转换；unknown 加断言会被 no-unnecessary-type-assertion 判多余（String 接受 any）
+      // eslint-disable-next-line @typescript-eslint/no-base-to-string
       const path = String(args.path || '')
       const dir = state.freeSpaces[path]
       return m({ path, 'size-bytes': dir ?? 320 * 1024 ** 3 })
@@ -129,11 +143,14 @@ async function mockRpcImpl<T = unknown>(method: string, args: Record<string, unk
       const fields = isStringArray(args.fields) ? args.fields : []
       const ids = args.ids
       let torrents: Torrent[] = state.torrents
-      if (isNumberArray(ids)) torrents = torrents.filter((x) => ids.includes(x.id))
-      else if (ids !== 'recently-active' && ids != null) torrents = torrents.filter((x) => ids === x.id)
+      if (isNumberArray(ids))
+        torrents = torrents.filter((x) => ids.includes(x.id))
+      else if (ids !== 'recently-active' && ids != null)
+        torrents = torrents.filter((x) => ids === x.id)
       const picked = torrents.map((x) => {
         const o: Record<string, unknown> = {}
-        for (const f of fields) o[f] = (x as unknown as Record<string, unknown>)[f]
+        for (const f of fields)
+          o[f] = (x as unknown as Record<string, unknown>)[f]
         return o
       })
       return m({ torrents: picked, removed: state.removed })

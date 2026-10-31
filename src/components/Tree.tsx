@@ -74,7 +74,11 @@ function TreeNode({
       >
         {/* 层级缩进：每个祖先层级一列（宽 indentSize），列内绘制连续竖参考线（A3 树线，样式见 app.css .eu-tree-indent.line） */}
         {Array.from({ length: depth }, (_, i) => (
-          <span key={i} className="eu-tree-indent line" style={{ width: indentSize }} />
+          <span
+            key={i}
+            className="eu-tree-indent line"
+            style={{ width: indentSize }}
+          />
         ))}
         {hasChildren ? (
           <span
@@ -88,7 +92,10 @@ function TreeNode({
           <span className="eu-tree-switch leaf" />
         )}
         {node.iconCls && <i className={`eu-tree-icon ${node.iconCls}`} />}
-        <span className="eu-tree-title" style={node.labelColor ? { color: node.labelColor } : undefined}>
+        <span
+          className="eu-tree-title"
+          style={node.labelColor ? { color: node.labelColor } : undefined}
+        >
           {node.text}
         </span>
       </div>

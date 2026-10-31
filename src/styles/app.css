@@ -45,7 +45,11 @@ button {
 .eu-panel-header {
   padding: 5px;
   color: var(--eu-title);
-  background: linear-gradient(to bottom, var(--eu-header-top) 0, var(--eu-header-bottom) 100%);
+  background: linear-gradient(
+    to bottom,
+    var(--eu-header-top) 0,
+    var(--eu-header-bottom) 100%
+  );
   border-bottom: 1px solid var(--eu-border);
   white-space: nowrap;
   flex: none;
@@ -63,7 +67,11 @@ button {
 .eu-splitter-v {
   width: 5px;
   cursor: col-resize;
-  background: linear-gradient(to right, var(--eu-hover), var(--eu-header-bottom));
+  background: linear-gradient(
+    to right,
+    var(--eu-hover),
+    var(--eu-header-bottom)
+  );
   border-left: 1px solid var(--eu-border);
   border-right: 1px solid var(--eu-border);
   flex: none;
@@ -71,7 +79,11 @@ button {
 .eu-splitter-h {
   height: 5px;
   cursor: row-resize;
-  background: linear-gradient(to bottom, var(--eu-hover), var(--eu-header-bottom));
+  background: linear-gradient(
+    to bottom,
+    var(--eu-hover),
+    var(--eu-header-bottom)
+  );
   border-top: 1px solid var(--eu-border);
   border-bottom: 1px solid var(--eu-border);
   flex: none;
@@ -417,7 +429,11 @@ textarea.eu-textbox {
 }
 .eu-tabs-header {
   flex: none;
-  background: linear-gradient(to bottom, var(--eu-grid-head-top), var(--eu-grid-head-bottom));
+  background: linear-gradient(
+    to bottom,
+    var(--eu-grid-head-top),
+    var(--eu-grid-head-bottom)
+  );
   border: 1px solid var(--eu-border);
   padding: 2px;
   display: flex;
@@ -432,7 +448,11 @@ textarea.eu-textbox {
   cursor: pointer;
   border: 1px solid transparent;
   color: var(--eu-title);
-  background: linear-gradient(to bottom, var(--eu-header-top), var(--eu-header-bottom));
+  background: linear-gradient(
+    to bottom,
+    var(--eu-header-top),
+    var(--eu-header-bottom)
+  );
   margin: 1px 0;
 }
 .eu-tabs-left .eu-tabs-tab {
@@ -812,7 +832,10 @@ th.datagrid-head-cell.drop-over-after {
 .m-button {
   border: 1px solid #b3b3b3;
   border-radius: 5px;
-  background: linear-gradient(var(--eu-surface-alt), var(--eu-grid-head-bottom));
+  background: linear-gradient(
+    var(--eu-surface-alt),
+    var(--eu-grid-head-bottom)
+  );
   color: var(--eu-text);
   padding: 8px 16px;
   cursor: pointer;
