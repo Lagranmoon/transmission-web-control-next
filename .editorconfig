@@ -1,0 +1,14 @@
+# https://editorconfig.org — 编辑器基础格式约定，与 .prettierrc 保持一致
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.md]
+# Markdown 行尾双空格是换行语法，不裁剪
+trim_trailing_whitespace = false

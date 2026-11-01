@@ -6,6 +6,9 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# 本地工具产物（UI 验收截图等，不入库）
+out/
+
 # 环境与编辑器
 .env
 .env.*

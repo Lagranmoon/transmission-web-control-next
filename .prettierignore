@@ -1,0 +1,9 @@
+dist/
+node_modules/
+repos/
+designs/
+out/
+package-lock.json
+src/assets/
+*.min.*
+.zcode/
