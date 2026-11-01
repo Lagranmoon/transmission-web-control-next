@@ -147,7 +147,7 @@ export function MobilePage() {
     }, 800)
   }
 
-  const categories: { key: string; label: string }[] = [
+  const categories: { key: keyof typeof counts; label: string }[] = [
     { key: 'all', label: lang.tree.all },
     { key: 'downloading', label: lang.tree.downloading },
     { key: 'paused', label: lang.tree.paused },
