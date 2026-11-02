@@ -135,7 +135,7 @@ export function loadUserConfig(): UserConfig {
   } catch {
     /* ignore */
   }
-  return { torrentList: { fields: [], sortName: null, sortOrder: 'asc' } }
+  return { ...DEFAULT_USER_CONFIG }
 }
 
 export function saveUserConfig(cfg: UserConfig) {

@@ -9,6 +9,7 @@ import {
   useStats,
   useTorrents,
   useRpcMutation,
+  useFreeSpace,
   queryKeys,
 } from '../api/queries'
 import { getSnapshot } from '../lib/torrents'
@@ -19,6 +20,8 @@ import { ProgressBar } from '../lib/columns'
 
 const PAGE_SIZE = 30
 
+type MobileView = 'home' | 'torrent-list' | 'add-torrent'
+
 export function MobilePage() {
   const { lang } = useLang()
   const config = useConfig()
@@ -28,9 +31,10 @@ export function MobilePage() {
   const qc = useQueryClient()
   useTorrents()
   const snap = getSnapshot()
+  // Transmission 4 / RPC 15 起 session-get 不再返回 download-dir-free-space，需单独查询
+  const freeSpace = useFreeSpace(session.data?.['download-dir'])
 
-  type Page = 'home' | 'torrent-list' | 'add-torrent'
-  const [page, setPage] = useState<Page>('home')
+  const [page, setPage] = useState<MobileView>('home')
   const [category, setCategory] = useState('all')
   const [panelOpen, setPanelOpen] = useState(false)
   const [checked, setChecked] = useState<Set<number>>(new Set())
@@ -137,12 +141,14 @@ export function MobilePage() {
     } catch (e) {
       setAddMsg(String((e as Error).message || e))
       return
+    } finally {
+      // 中途失败时前面已成功添加的种子也必须出现在列表里，因此放在 finally 而非成功分支
+      void qc.invalidateQueries({ queryKey: queryKeys.torrents })
     }
     setUrls('')
     setAddMsg(lang.system.status.queuefinish)
     setTimeout(() => {
       setAddMsg('')
-      void qc.invalidateQueries({ queryKey: queryKeys.torrents })
       setPage('home')
     }, 800)
   }
@@ -401,9 +407,11 @@ export function MobilePage() {
           </span>
           <span>
             {formatSize(
-              (session.data as Record<string, number>)?.[
-                'download-dir-free-space'
-              ] ?? 0,
+              freeSpace.data?.['size-bytes'] ??
+                (session.data as Record<string, number>)?.[
+                  'download-dir-free-space'
+                ] ??
+                0,
             )}
           </span>
         </div>

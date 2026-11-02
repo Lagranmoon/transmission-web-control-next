@@ -9,11 +9,14 @@ import {
 } from '../lib/types'
 import { ingestTorrents, isInited } from '../lib/torrents'
 import { configStore } from '../lib/config'
+import { showToast } from '../lib/ui'
 
 export const queryKeys = {
   session: ['session'] as const,
   stats: ['stats'] as const,
   torrents: ['torrents'] as const,
+  /** 详情查询前缀：invalidateQueries 用它一次命中所有种子的详情 */
+  detailsAll: ['torrent-details'] as const,
   details: (id: number) => ['torrent-details', id] as const,
   freeSpace: (path: string) => ['free-space', path] as const,
 }
@@ -54,7 +57,10 @@ export function useTorrents() {
     queryKey: queryKeys.torrents,
     queryFn: async (): Promise<number> => {
       const args: Record<string, unknown> = {
-        fields: TORRENT_FIELDS.base.split(','),
+        fields: [
+          ...TORRENT_FIELDS.base.split(','),
+          ...TORRENT_FIELDS.config.split(','),
+        ],
       }
       if (isInited()) args.ids = 'recently-active'
       const result = await rpc<{ torrents: Torrent[]; removed: number[] }>(
@@ -77,10 +83,8 @@ export function useTorrentDetails(id: number, enabled: boolean) {
     queryKey: queryKeys.details(id),
     enabled: enabled && id > 0,
     queryFn: async () => {
-      const fields =
-        'fileStats,trackerStats,peers,leftUntilDone,status,rateDownload,rateUpload,uploadedEver,uploadRatio,error,errorString,pieces,pieceCount,pieceSize,files,trackers,comment,dateCreated,creator,downloadDir,downloadLimit,downloadLimited,uploadLimit,uploadLimited,peer-limit,seedIdleLimit,seedIdleMode,seedRatioLimit,seedRatioMode'
       const result = await rpc<{ torrents: Torrent[] }>('torrent-get', {
-        fields: fields.split(','),
+        fields: TORRENT_FIELDS.details.split(','),
         ids: id,
       })
       return result.torrents?.[0] || null
@@ -122,10 +126,13 @@ export function useRpcMutation() {
       void qc.invalidateQueries({ queryKey: queryKeys.torrents })
       void qc.invalidateQueries({ queryKey: queryKeys.stats })
       // 前缀匹配命中所有 torrent-details 查询：autoReload 关闭时详情面板也能刷新
-      void qc.invalidateQueries({ queryKey: ['torrent-details'] })
+      void qc.invalidateQueries({ queryKey: queryKeys.detailsAll })
       if (variables.method === 'session-set') {
         void qc.invalidateQueries({ queryKey: queryKeys.session })
       }
     },
+    // 默认错误反馈：多数调用点只传 onSuccess，此前失败会被静默吞掉（例如开始/暂停、重命名、
+    // tracker 增删）；调用点在 mutate(vars, options) 里显式传入的 onError 会覆盖此处
+    onError: (e: Error) => showToast(String(e.message || e)),
   })
 }

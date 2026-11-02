@@ -149,13 +149,26 @@ export const STATUS = {
   actively: 101,
 } as const
 
-export const TRACKER_STATUS = {
-  inactive: 0,
-  waiting: 1,
-  queued: 2,
-  active: 3,
-} as const
+/** session-get 返回但 session-set 不可设置（或不应回写）的字段。
+ *  系统设置保存时的 diff 与「导出配置」的排除列表共用这一份，避免两处清单漂移。 */
+export const SESSION_READONLY_KEYS = [
+  'version',
+  'rpc-version',
+  'rpc-version-minimum',
+  'config-dir',
+  'session-id',
+  'units',
+  'download-dir-free-space',
+  'blocklist-size',
+] as const
 
 export const TORRENT_FIELDS = {
   base: 'id,name,status,hashString,totalSize,percentDone,addedDate,trackerStats,leftUntilDone,rateDownload,rateUpload,recheckProgress,peersGettingFromUs,peersSendingToUs,uploadRatio,uploadedEver,downloadedEver,downloadDir,error,errorString,doneDate,queuePosition,activityDate',
+  // 单种子限速/做种模式：基础轮询一并获取，供「变更速度限制」与详情面板「设置」直接初始化，
+  // 否则只能拿到 undefined 并把默认值（0/60/禁用）写回守护进程
+  config:
+    'downloadLimit,downloadLimited,peer-limit,seedIdleLimit,seedIdleMode,seedRatioLimit,seedRatioMode,uploadLimit,uploadLimited',
+  // 详情面板轮询字段：基础字段之外补充文件/peers/pieces/注释等重字段
+  details:
+    'fileStats,trackerStats,peers,leftUntilDone,status,rateDownload,rateUpload,uploadedEver,uploadRatio,error,errorString,pieces,pieceCount,pieceSize,files,trackers,comment,dateCreated,creator,downloadDir,downloadLimit,downloadLimited,uploadLimit,uploadLimited,peer-limit,seedIdleLimit,seedIdleMode,seedRatioLimit,seedRatioMode',
 }

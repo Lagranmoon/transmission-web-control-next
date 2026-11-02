@@ -1,5 +1,6 @@
 // 配置导出/导入 + 自动匹配数据目录 — 移植原项目对应模板
 import { useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Dialog, LinkButton, NumberSpinner, ComboBox } from '../components/ui'
 import { useLang } from '../i18n'
 import {
@@ -9,7 +10,7 @@ import {
   showProgress,
   hideProgress,
 } from '../lib/ui'
-import { useSession, useRpcMutation, useTorrents } from '../api/queries'
+import { useSession, useTorrents, queryKeys } from '../api/queries'
 import { getSnapshot } from '../lib/torrents'
 import {
   configStore,
@@ -19,6 +20,11 @@ import {
   userConfigStore,
 } from '../lib/config'
 import { rpc } from '../lib/rpc'
+import { SESSION_READONLY_KEYS } from '../lib/types'
+
+/** 普通对象（排除 null 与数组），用于校验导入文件的结构 */
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  !!v && typeof v === 'object' && !Array.isArray(v)
 
 /* ---------------- 导出配置 ---------------- */
 export function ExportConfigDialog({ dialogId }: { dialogId: string }) {
@@ -40,17 +46,8 @@ export function ExportConfigDialog({ dialogId }: { dialogId: string }) {
     }
     if (server && session.data) {
       const srv: Record<string, unknown> = { ...session.data }
-      // 排除不需要/不可导入的参数（与原版一致）
-      for (const key of [
-        'blocklist-size',
-        'config-dir',
-        'rpc-version',
-        'rpc-version-minimum',
-        'version',
-        'session-id',
-        'units',
-        'download-dir-free-space',
-      ]) {
+      // 排除不需要/不可导入的参数（与系统设置保存的只读清单一致）
+      for (const key of SESSION_READONLY_KEYS) {
         delete srv[key]
       }
       data['server'] = srv
@@ -121,7 +118,6 @@ export function ExportConfigDialog({ dialogId }: { dialogId: string }) {
 /* ---------------- 导入配置 ---------------- */
 export function ImportConfigDialog({ dialogId }: { dialogId: string }) {
   const { lang } = useLang()
-  const mutation = useRpcMutation()
   const L = lang.dialog['import-config']
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
@@ -131,30 +127,45 @@ export function ImportConfigDialog({ dialogId }: { dialogId: string }) {
     try {
       const text = await file.text()
       const data = JSON.parse(text) as Record<string, unknown>
-      if (!data || typeof data !== 'object') throw new Error('invalid')
+      // 导入文件来自用户磁盘：逐项校验结构后再落盘。直接 saveConfig(任意 JSON) 会把
+      // labels/labelMaps/pageSize 等写成错误类型，页面重载后各处读取崩溃且浏览器端无法恢复。
+      if (!isRecord(data)) throw new Error('invalid')
+      if (data['system'] != null && !isRecord(data['system']))
+        throw new Error('invalid')
+      if (data['user'] != null && !isRecord(data['user']))
+        throw new Error('invalid')
+      if (
+        data['dictionary-folders'] != null &&
+        !(
+          Array.isArray(data['dictionary-folders']) &&
+          data['dictionary-folders'].every((d) => typeof d === 'string')
+        )
+      )
+        throw new Error('invalid')
+      if (data['server'] != null && !isRecord(data['server']))
+        throw new Error('invalid')
       if (
         !window.confirm(lang.dialog['system-config']['import-config-confirm'])
       ) {
         setBusy(false)
         return
       }
-      if (data['system']) {
-        const sys = data['system'] as Record<string, unknown>
-        saveConfig(sys)
+      if (isRecord(data['system'])) {
+        saveConfig(data['system'])
       }
-      if (data['user']) {
+      if (isRecord(data['user'])) {
         localStorage.setItem(
           'transmission-web-control',
           JSON.stringify(data['user']),
         )
       }
-      if (data['dictionary-folders']) {
-        setFolderDictionary(data['dictionary-folders'] as string[])
+      if (Array.isArray(data['dictionary-folders'])) {
+        setFolderDictionary(data['dictionary-folders'])
       }
-      if (data['server']) {
-        await rpc('session-set', data['server'] as Record<string, unknown>)
+      if (isRecord(data['server'])) {
+        await rpc('session-set', data['server'])
       }
-      mutation.mutate({ method: 'session-stats' })
+      // 导入完成后整页重载，无需在此手动刷新查询缓存
       closeDialog(dialogId)
       setTimeout(() => location.reload(), 300)
     } catch {
@@ -206,7 +217,7 @@ export function AutoMatchDialog({ dialogId, ids }: AutoMatchProps) {
   const L = lang.dialog['auto-match-data-folder']
   useTorrents()
   const snap = getSnapshot()
-  const mutation = useRpcMutation()
+  const qc = useQueryClient()
 
   // 候选：已停止且无数据的种子（与原版一致）
   const candidates = ids.filter((id) => {
@@ -233,16 +244,19 @@ export function AutoMatchDialog({ dialogId, ids }: AutoMatchProps) {
   const stop = () => {
     setWorking(false)
     hideProgress()
-    mutation.mutate({ method: 'session-stats' })
+    // 移动位置会改变列表派生数据：直接失效查询，不再借道 session-stats mutation
+    void qc.invalidateQueries({ queryKey: queryKeys.torrents })
+    void qc.invalidateQueries({ queryKey: queryKeys.stats })
     closeDialog(dialogId)
   }
 
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
   const matchOne = async (id: number, dirList: string[]): Promise<boolean> => {
-    for (const dir of dirList) {
-      if (!workingRef.current) return false
-      setCurFolder(`${dir} [${dirList.indexOf(dir) + 1}/${dirList.length}]`)
+    for (const [dirIndex, dir] of dirList.entries()) {
+      // ignore 在当前种子处理期间点击：立即放弃剩余候选目录，而不是等下一个种子才生效
+      if (!workingRef.current || ignoreRef.current) return false
+      setCurFolder(`${dir} [${dirIndex + 1}/${dirList.length}]`)
       const t = getSnapshot().all[id]
       if (!t || t.downloadDir === dir) continue
       await rpc('torrent-set-location', {
@@ -287,11 +301,10 @@ export function AutoMatchDialog({ dialogId, ids }: AutoMatchProps) {
           const id = candidates[i]
           const name = getSnapshot().all[id]?.name ?? String(id)
           setCurTorrent(`${name} [${i + 1}/${candidates.length}]`)
-          if (ignoreRef.current) {
-            ignoreRef.current = false
-            continue
-          }
           await matchOne(id, folders)
+          // 忽略标记属于刚处理完的这个种子，处理结束即清除；此前在上一个种子处消费，
+          // 会把「忽略」错误地作用到下一个种子上（跳过无辜种子且当前种子仍被移动）
+          if (ignoreRef.current) ignoreRef.current = false
         }
       } else {
         // 方式二：按目录逐个匹配种子（批量移动后校验，筛出仍未匹配的）

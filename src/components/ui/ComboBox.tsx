@@ -40,6 +40,13 @@ export function ComboBox({
     return () => document.removeEventListener('mousedown', onDown)
   }, [open, editable, filter, onChange])
 
+  /** 提交一个值：关闭下拉并清空过滤词（选项/手输/回退值三条路径共用） */
+  const choose = (v: string) => {
+    onChange(v)
+    setOpen(false)
+    setFilter('')
+  }
+
   const current = options.find((o) => o.value === value)
   const visible = filter
     ? options.filter((o) => o.text.toLowerCase().includes(filter.toLowerCase()))
@@ -54,13 +61,22 @@ export function ComboBox({
     >
       <div
         className={`eu-textbox flex items-center justify-between ${disabled ? 'opacity-60' : 'cursor-pointer'}`}
-        onClick={() => !disabled && setOpen((o) => !o)}
+        onClick={() => {
+          if (disabled) return
+          // 手动收起时清空过滤词，否则下次展开仍停留在上次的过滤结果
+          if (open) setFilter('')
+          setOpen(!open)
+        }}
       >
         <input
           className="flex-1 outline-none bg-transparent min-w-0"
           value={editable && open ? filter : (current?.text ?? value)}
           placeholder={placeholder}
           readOnly={!editable || !open || disabled}
+          onClick={(e) => {
+            // 展开态下点击输入框只是定位光标；不拦截冒泡会把下拉关掉（收起态仍要能点开）
+            if (editable && open) e.stopPropagation()
+          }}
           onChange={(e) => setFilter(e.target.value)}
           onKeyDown={(e) => {
             // 可编辑模式支持手输提交（如新增下载目录）：Enter 提交输入文本并关闭
@@ -85,10 +101,7 @@ export function ComboBox({
             !visible.some((o) => o.value === value) && (
               <div
                 className="px-2 py-1 cursor-pointer hover:bg-[var(--eu-hover)]"
-                onClick={() => {
-                  onChange(value)
-                  setOpen(false)
-                }}
+                onClick={() => choose(value)}
               >
                 {value}
               </div>
@@ -99,11 +112,7 @@ export function ComboBox({
             !visible.some((o) => o.text === filter) && (
               <div
                 className="px-2 py-1 cursor-pointer hover:bg-[var(--eu-hover)]"
-                onClick={() => {
-                  onChange(filter)
-                  setOpen(false)
-                  setFilter('')
-                }}
+                onClick={() => choose(filter)}
               >
                 {filter}
               </div>
@@ -120,11 +129,7 @@ export function ComboBox({
                 {groupEl}
                 <div
                   className={`px-2 py-1 cursor-pointer hover:bg-[var(--eu-hover)] ${o.value === value ? 'bg-[var(--eu-selected)]' : ''}`}
-                  onClick={() => {
-                    onChange(o.value)
-                    setOpen(false)
-                    setFilter('')
-                  }}
+                  onClick={() => choose(o.value)}
                 >
                   {o.text}
                 </div>

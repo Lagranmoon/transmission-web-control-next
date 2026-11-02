@@ -114,33 +114,7 @@ function toCellText(value: unknown): string {
   return String(value)
 }
 
-export function DataGrid<T extends Record<string, unknown>>({
-  columns,
-  rows,
-  keyField,
-  rownumbers = false,
-  checkedKeys,
-  onCheck,
-  selectedKey,
-  onSelect,
-  sortName,
-  sortOrder,
-  onSort,
-  onColumnsChange,
-  pagination = false,
-  page = 1,
-  pageSize = 30,
-  pageList,
-  onPageChange,
-  onPageSizeChange,
-  pagerExtra,
-  onRowContextMenu,
-  emptyText = '',
-  maxHeight,
-  keyboard = true,
-  onKeyDown,
-  rowActions,
-}: {
+export interface DataGridProps<T> {
   columns: GridColumn<T>[]
   rows: T[]
   keyField: string
@@ -169,7 +143,35 @@ export function DataGrid<T extends Record<string, unknown>>({
   onKeyDown?: (e: React.KeyboardEvent) => void
   /** C1 行 hover 时在行右端浮出的快捷操作（渲染在最后一个单元格内，不占列宽） */
   rowActions?: (row: T) => ReactNode
-}) {
+}
+
+export function DataGrid<T extends Record<string, unknown>>({
+  columns,
+  rows,
+  keyField,
+  rownumbers = false,
+  checkedKeys,
+  onCheck,
+  selectedKey,
+  onSelect,
+  sortName,
+  sortOrder,
+  onSort,
+  onColumnsChange,
+  pagination = false,
+  page = 1,
+  pageSize = 30,
+  pageList,
+  onPageChange,
+  onPageSizeChange,
+  pagerExtra,
+  onRowContextMenu,
+  emptyText = '',
+  maxHeight,
+  keyboard = true,
+  onKeyDown,
+  rowActions,
+}: DataGridProps<T>) {
   const { show: showMenu } = useMenu()
   // grid-3：宿主未传 onColumnsChange 时（如 AttributePanel 各网格），列宽拖动与表头右键显隐
   // 退回 useColumnState 本地 state，两个交互不再静默失效；传了回调则仍由宿主全权受控，行为不变
@@ -235,11 +237,25 @@ export function DataGrid<T extends Record<string, unknown>>({
 
   // grid-1 坐标系统一：全局行号（含分页偏移，供行号显示与右键菜单）与页内索引（供勾选连选）
   // 的换算全部收在组件内部，不改宿主传参 —— toggleRowCheck 入口收全局行号，先减偏移还原页内索引
-  const pageOffset = pagination ? (page - 1) * pageSize : 0
+  // 页码收敛统一在网格内完成：宿主未做钳制时（如详情面板各 Tab），
+  // 切片与偏移用 safePage，避免 rows 变少后切片越界得到空表而分页器仍显示正常页码
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize))
+  const safePage = pagination ? Math.min(Math.max(page, 1), pageCount) : page
+  const pageOffset = pagination ? (safePage - 1) * pageSize : 0
   const pageRows = useMemo(() => {
     if (!pagination) return rows
     return rows.slice(pageOffset, pageOffset + pageSize)
   }, [rows, pagination, pageOffset, pageSize])
+
+  // 页码越界时回写宿主 state，保证下一次数据变化后仍从合法页继续
+  useEffect(() => {
+    if (pagination && page !== safePage) onPageChange?.(safePage)
+  }, [pagination, page, safePage, onPageChange])
+
+  // 翻页/更换每页条数后锚点失效：shift 连选锚点是页内索引，跨页沿用旧锚点会选错区间甚至越界
+  useEffect(() => {
+    lastCheckedRef.current = -1
+  }, [page, pageSize, pagination])
 
   // C3 窗口化渲染：超过阈值时只渲染可见区间 ± buffer 行，用上下占位 tr 保持滚动条真实。
   // 行 i 的内容位置 = headerH + i*行高（粘性表头在内容流中占位），窗口起算需扣除 headerH，
@@ -326,14 +342,19 @@ export function DataGrid<T extends Record<string, unknown>>({
     if (
       e.shiftKey &&
       lastCheckedRef.current >= 0 &&
-      lastCheckedRef.current !== index
+      lastCheckedRef.current !== index &&
+      pageRows.length > 0
     ) {
+      // 锚点与目标都可能超出当前页（数据变少/翻页后），区间夹在 [0, pageRows.length-1]，
+      // 否则 keyOf(undefined) 会在点击处理器里抛 TypeError
       const [s, e2] = [
-        Math.min(lastCheckedRef.current, index),
-        Math.max(lastCheckedRef.current, index),
+        Math.max(0, Math.min(lastCheckedRef.current, index)),
+        Math.min(pageRows.length - 1, Math.max(lastCheckedRef.current, index)),
       ]
       for (let i = s; i <= e2; i++) {
-        const k = keyOf(pageRows[i])
+        const targetRow = pageRows[i]
+        if (!targetRow) continue
+        const k = keyOf(targetRow)
         if (willCheck) next.add(k)
         else next.delete(k)
       }

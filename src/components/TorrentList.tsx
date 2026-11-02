@@ -66,10 +66,11 @@ export function TorrentList() {
       const folder = s.folders[id]
       if (!folder) return []
       if (!config.hideSubfolders) return folder.torrents
+      // 仅归一化路径分隔符（反斜杠/正斜杠）；竖线是合法文件名字符，不应参与比较
       return folder.torrents.filter(
         (t) =>
-          t.downloadDir.replace(/[\\|/]/g, '') ===
-          folder.path.replace(/[\\|/]/g, ''),
+          t.downloadDir.replace(/[/\\]/g, '') ===
+          folder.path.replace(/[/\\]/g, ''),
       )
     }
     if (id.startsWith('label-')) {
@@ -127,13 +128,6 @@ export function TorrentList() {
     setPage(1)
     uiStore.set({ checkedIds: [] })
   }, [ui.currentNodeId])
-
-  // 当前页超出总页数时回落（如删除末页种子、调大 pageSize 后），避免切片越界导致列表空白
-  useEffect(() => {
-    setPage((p) =>
-      Math.min(p, Math.max(1, Math.ceil(rows.length / config.pageSize))),
-    )
-  }, [rows.length, config.pageSize])
 
   const persistColumns = (cols: GridColumn<Row>[]) => {
     persistUserConfig({

@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Dialog, LinkButton, ComboBox, SwitchButton } from '../components/ui'
 import { useLang } from '../i18n'
 import { closeDialog } from '../lib/ui'
-import { useSession, useRpcMutation, useTorrents } from '../api/queries'
+import { useSession, useTorrents, queryKeys } from '../api/queries'
 import { getSnapshot } from '../lib/torrents'
 import {
   configStore,
@@ -27,7 +28,7 @@ export function AddTorrentDialog({
   const session = useSession()
   useTorrents()
   const snap = getSnapshot()
-  const mutation = useRpcMutation()
+  const qc = useQueryClient()
   const L = lang.dialog['torrent-add']
   const defaultDir = (session.data?.['download-dir'] as string) || ''
   const [dir, setDir] = useState(defaultDir)
@@ -87,8 +88,6 @@ export function AddTorrentDialog({
             setStatus(`${done}/${fileList.length}`)
           }
         }
-        mutation.reset()
-        void mutation.mutate({ method: 'session-stats' })
       } else if (urlText) {
         const list = urlText
           .split('\n')
@@ -119,6 +118,11 @@ export function AddTorrentDialog({
       setStatus(String((e as Error).message || e))
       setBusy(false)
       return
+    } finally {
+      // URL/文件两条路径都可能已成功添加一部分种子（批量中途失败亦然），统一触发列表与统计刷新；
+      // 以前只有上传路径借道 session-stats mutation 间接触发，URL 路径完全依赖轮询。
+      void qc.invalidateQueries({ queryKey: queryKeys.torrents })
+      void qc.invalidateQueries({ queryKey: queryKeys.stats })
     }
   }
 
